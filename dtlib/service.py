@@ -177,6 +177,40 @@ class BoardService:
         }
         return event, warnings, counts
 
+    def import_payload(self, payload, actor):
+        actor = check_actor(actor)
+        if not isinstance(payload, dict):
+            raise DtError("payload 不是 JSON 对象", 2)
+        map_data = payload.get("map")
+        if not isinstance(map_data, dict):
+            raise DtError("payload 缺 map", 2)
+        map_id = str(map_data.get("id") or "")
+        if not map_id:
+            raise DtError("payload 缺 map.id", 2)
+        source = f"payload:{map_id}"
+        with self.lock:
+            if map_id in self.store.state["issues"]:
+                raise DtError(f"地图 {map_id} 已经导入过了")
+            for event in self.store.events:
+                if event["op"] == "import" and event["target"] == source:
+                    raise DtError(f"地图 {map_id} 已经导入过了")
+        event = Board(self.store).import_event(actor, payload, source)
+        with self.lock:
+            self.store.append_event(event)
+        for local, number in (payload.get("github") or {}).get("issues", {}).items():
+            self.store.sync_record({"type": "mapping", "kind": "issue",
+                                    "local": local, "github": number})
+        for local, number in (payload.get("github") or {}).get("comments", {}).items():
+            self.store.sync_record({"type": "mapping", "kind": "comment",
+                                    "local": local, "github": number})
+        counts = {
+            "tickets": len(payload.get("tickets") or []),
+            "comments": len(payload.get("comments") or []),
+            "decisions": len(payload.get("decisions") or []),
+            "coverage": len(payload.get("coverage") or []),
+        }
+        return event, counts
+
     def sync_check(self, map_id):
         with self.lock:
             if not self.store.mirror_on(map_id):
@@ -246,6 +280,10 @@ class Handler(BaseHTTPRequestHandler):
                 event, warnings, counts = self.service.import_github(
                     str(body["map"]), body.get("actor") or current_actor())
                 self._ok({"event": event, "warnings": warnings, "counts": counts})
+            elif path == "/import/payload":
+                event, counts = self.service.import_payload(
+                    body.get("payload"), body.get("actor") or current_actor())
+                self._ok({"event": event, "counts": counts})
             elif path == "/sync/check":
                 self._ok(self.service.sync_check(str(body["map"])))
             elif path == "/sync/run":

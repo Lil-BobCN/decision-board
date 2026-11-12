@@ -428,6 +428,9 @@ def build_generated_section(store, map_id):
     ]
     for frag in root["fragments"]:
         lines.append(f"{frag['index']}. {frag['text']}")
+    map_issue = state["issues"].get(map_id) or {}
+    lines += ["", "## 拆票理由", "",
+              map_issue.get("split_rationale") or "未记录"]
     lines += ["", "## Destination 覆盖表", "",
               "| 句 | 主句片段 | 由哪张票落 | 状态 |",
               "| --- | --- | --- | --- |"]

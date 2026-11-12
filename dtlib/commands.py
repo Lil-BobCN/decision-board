@@ -49,9 +49,9 @@ class Board:
     # ---------- 票 ----------
 
     def issue_create(self, actor, kind, title, body="", labels=None, parent=None,
-                     state="open", type=None, split_reason="", derived_from=None,
-                     derived_from_inferred=None, covers=None, destination=None,
-                     reason=None, impact=None):
+                     state="open", type=None, split_reason="", split_rationale="",
+                     derived_from=None, derived_from_inferred=None, covers=None,
+                     destination=None, reason=None, impact=None):
         iid = self.next_issue_id()
         labels = list(labels or [])
         payload = {
@@ -63,6 +63,8 @@ class Board:
             "state": state,
         }
         if kind == "ticket":
+            if split_rationale:
+                raise DtError("票没有 split_rationale，用 split_reason", 2)
             payload.update({
                 "type": type,
                 "split_reason": split_reason,
@@ -81,6 +83,7 @@ class Board:
                 raise DtError("新建地图必须给 destination.statement", 2)
             fragments = destination.get("fragments") or _split_sentences(destination["statement"])
             root_id = f"D-{iid}-ROOT"
+            payload["split_rationale"] = split_rationale or ""
             payload["destination"] = {
                 "decision": root_id,
                 "statement": destination["statement"],
@@ -92,8 +95,8 @@ class Board:
 
     def issue_edit(self, actor, iid, fields, reason=None, impact=None):
         payload = {}
-        for key in ("title", "body", "type", "split_reason", "derived_from",
-                    "derived_from_inferred", "covers"):
+        for key in ("title", "body", "type", "split_reason", "split_rationale",
+                    "derived_from", "derived_from_inferred", "covers"):
             if fields.get(key) is not None:
                 payload[key] = fields[key]
         if not payload:
@@ -147,7 +150,7 @@ class Board:
     # ---------- 决定 ----------
 
     def decision_create(self, actor, statement, source_ticket=None, output_files=None,
-                        fragments=None, root_of=None, reason=None, did=None):
+                        fragments=None, root_of=None, reason=None, did=None, rationale=None):
         if did:
             if not did.startswith("D-") or any(ch.isspace() for ch in did):
                 raise DtError(f"决定编号不合法：{did}", 2)
@@ -158,6 +161,8 @@ class Board:
             "source_ticket": source_ticket,
             "output_files": list(output_files or []),
         }
+        if rationale is not None:
+            payload["rationale"] = rationale
         if root_of:
             payload["root_of"] = root_of
             if not fragments:
@@ -168,7 +173,7 @@ class Board:
 
     def decision_overturn(self, actor, old_id, statement, source_ticket=None,
                           output_files=None, fragments=None, reason=None,
-                          impact_action=None):
+                          impact_action=None, rationale=None):
         old = self.state["decisions"].get(old_id)
         if not old:
             raise DtError(f"找不到决定 {old_id}")
@@ -191,6 +196,8 @@ class Board:
                 "output_files": list(output_files or []),
             }
         }
+        if rationale is not None:
+            payload["new_decision"]["rationale"] = rationale
         if root_of:
             payload["new_decision"]["root_of"] = root_of
             payload["new_decision"]["fragments"] = list(fragments)
@@ -476,6 +483,7 @@ def dispatch(board, op, args, actor, reason=None):
             state=args.get("state", "open"),
             type=args.get("type"),
             split_reason=args.get("split_reason", ""),
+            split_rationale=args.get("split_rationale", ""),
             derived_from=args.get("derived_from"),
             derived_from_inferred=args.get("derived_from_inferred"),
             covers=args.get("covers"),
@@ -486,7 +494,8 @@ def dispatch(board, op, args, actor, reason=None):
         return board.issue_edit(
             actor, args["id"],
             {k: args.get(k) for k in ("title", "body", "type", "split_reason",
-                                      "derived_from", "derived_from_inferred", "covers")},
+                                      "split_rationale", "derived_from",
+                                      "derived_from_inferred", "covers")},
             reason=reason,
         )
     if op == "issue.confirm_derived":
@@ -516,6 +525,7 @@ def dispatch(board, op, args, actor, reason=None):
             root_of=args.get("root_of"),
             reason=reason,
             did=args.get("id"),
+            rationale=args.get("rationale"),
         )
     if op == "decision.overturn":
         return board.decision_overturn(
@@ -524,6 +534,7 @@ def dispatch(board, op, args, actor, reason=None):
             output_files=args.get("output_files"),
             fragments=args.get("fragments"),
             reason=reason,
+            rationale=args.get("rationale"),
         )
     if op == "decision.void":
         return board.decision_void(actor, args["id"], args["void_reason"], reason=reason)

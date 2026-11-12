@@ -124,6 +124,7 @@ def _fold_import(state, event):
         "parent": None,
         "blocked_by": [],
         "split_reason": "",
+        "split_rationale": map_data.get("split_rationale", ""),
         "derived_from": [],
         "covers": [],
         "created_at": map_data.get("created_at") or ts,
@@ -139,6 +140,7 @@ def _fold_import(state, event):
             "root_of": map_id,
             "source_ticket": None,
             "output_files": root.get("output_files", []),
+            "rationale": root.get("rationale", ""),
             "status": "active",
             "supersedes": [],
             "superseded_by": None,
@@ -199,6 +201,7 @@ def _fold_import(state, event):
             "root_of": item.get("root_of"),
             "source_ticket": str(item["source_ticket"]) if item.get("source_ticket") else None,
             "output_files": list(item.get("output_files", [])),
+            "rationale": item.get("rationale", ""),
             "status": "active",
             "supersedes": [],
             "superseded_by": None,
@@ -235,6 +238,7 @@ def _fold_import(state, event):
             "created_by": item.get("created_by") or event["actor"],
             "last_judged_at": item.get("last_judged_at"),
             "last_judged_by": item.get("last_judged_by"),
+            "last_judged_reason": item.get("last_judged_reason"),
         })
 
     for row in payload.get("coverage", []):
@@ -314,6 +318,8 @@ def _fold_issue_create(state, event):
             raise DtError(f"票 {iid} 的父地图不存在：{parent}")
         if state["issues"][parent]["kind"] != "map":
             raise DtError(f"票 {iid} 的父 issue 不是地图：{parent}")
+        if "split_rationale" in p:
+            raise DtError("票没有 split_rationale，用 split_reason")
         derived_from = list(p.get("derived_from", []))
         derived_from_inferred = list(p.get("derived_from_inferred", []))
         covers = list(p.get("covers", []))
@@ -339,6 +345,7 @@ def _fold_issue_create(state, event):
         "parent": parent,
         "blocked_by": [],
         "split_reason": p.get("split_reason", "") if kind == "ticket" else "",
+        "split_rationale": p.get("split_rationale", "") if kind == "map" else "",
         "derived_from": list(p.get("derived_from", [])) if kind == "ticket" else [],
         "derived_from_inferred": list(p.get("derived_from_inferred", [])) if kind == "ticket" else [],
         "covers": list(p.get("covers", [])) if kind == "ticket" else [],
@@ -360,6 +367,7 @@ def _fold_issue_create(state, event):
             "root_of": iid,
             "source_ticket": None,
             "output_files": [],
+            "rationale": "",
             "status": "active",
             "supersedes": [],
             "superseded_by": None,
@@ -377,6 +385,10 @@ def _fold_issue_edit(state, event):
     for key in ("title", "body", "split_reason"):
         if key in p:
             issue[key] = p[key]
+    if "split_rationale" in p:
+        if issue["kind"] != "map":
+            raise DtError("只有地图有 split_rationale；票用 split_reason")
+        issue["split_rationale"] = p["split_rationale"]
     if "type" in p:
         _require_ticket(issue)
         issue["type"] = p["type"]
@@ -587,6 +599,7 @@ def _fold_decision_create(state, event):
         "root_of": p.get("root_of"),
         "source_ticket": p.get("source_ticket"),
         "output_files": list(p["output_files"]),
+        "rationale": p.get("rationale", ""),
         "status": "active",
         "supersedes": [],
         "superseded_by": None,
@@ -620,6 +633,7 @@ def _fold_decision_overturn(state, event):
         "root_of": nd.get("root_of"),
         "source_ticket": nd.get("source_ticket"),
         "output_files": list(nd.get("output_files", [])),
+        "rationale": nd.get("rationale", ""),
         "status": "active",
         "supersedes": [old["id"]],
         "superseded_by": None,
@@ -696,6 +710,7 @@ def _fold_premise_add(state, event):
         "created_by": event["actor"],
         "last_judged_at": None,
         "last_judged_by": None,
+        "last_judged_reason": None,
     })
 
 
@@ -716,6 +731,7 @@ def _fold_premise_judge(state, event):
     premise["state"] = p["verdict"]
     premise["last_judged_at"] = event["ts"]
     premise["last_judged_by"] = event["actor"]
+    premise["last_judged_reason"] = event.get("reason")
     premise["evidence"] = list(premise["evidence"]) + list(p["evidence"])
 
 

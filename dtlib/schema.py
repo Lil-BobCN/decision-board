@@ -48,13 +48,13 @@ _SCHEMAS = {
         ),
         "issue.create": (
             {"kind", "title", "body", "labels", "parent", "state"},
-            {"type", "split_reason", "derived_from", "derived_from_inferred", "covers", "destination",
-             "impact_case", "impact_item", "impact_action"},
+            {"type", "split_reason", "split_rationale", "derived_from", "derived_from_inferred",
+             "covers", "destination", "impact_case", "impact_item", "impact_action"},
         ),
         "issue.edit": (
             set(),
-            {"title", "body", "type", "split_reason", "derived_from", "derived_from_inferred", "covers",
-             "impact_case", "impact_item", "impact_action"},
+            {"title", "body", "type", "split_reason", "split_rationale", "derived_from",
+             "derived_from_inferred", "covers", "impact_case", "impact_item", "impact_action"},
         ),
         "issue.confirm_derived": (set(), {"decisions"}),
         "issue.state": (
@@ -69,7 +69,7 @@ _SCHEMAS = {
         "comment.delete": (set(), set()),
         "decision.create": (
             {"statement", "source_ticket", "output_files"},
-            {"fragments", "root_of"},
+            {"fragments", "root_of", "rationale"},
         ),
         "decision.overturn": (
             {"new_decision"},
@@ -183,8 +183,11 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(_str_list(p["covers"]), "covers 不是字符串数组", where)
             _expect(p["parent"] is not None, "票必须挂地图", where)
             _expect("destination" not in p, "票不能带 destination", where)
+            _expect("split_rationale" not in p, "票没有 split_rationale，用 split_reason", where)
         else:
             _expect("destination" in p, "地图缺 destination", where)
+            if "split_rationale" in p:
+                _expect(isinstance(p["split_rationale"], str), "split_rationale 不是字符串", where)
             _expect(isinstance(p["destination"], dict), "destination 不是对象", where)
             d = p["destination"]
             _expect(set(d) == {"decision", "statement", "fragments"},
@@ -194,12 +197,12 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(_str_list(d["fragments"]) and d["fragments"], "destination.fragments 为空", where)
             _expect(p["parent"] is None, "地图不能有父票", where)
     elif op == "issue.edit":
-        for key in ("title", "body", "type", "split_reason", "derived_from",
-                    "derived_from_inferred", "covers"):
+        for key in ("title", "body", "type", "split_reason", "split_rationale",
+                    "derived_from", "derived_from_inferred", "covers"):
             if key in p:
                 if key in ("title",):
                     _expect(isinstance(p[key], str) and p[key], f"{key} 为空", where)
-                elif key in ("body", "split_reason"):
+                elif key in ("body", "split_reason", "split_rationale"):
                     _expect(isinstance(p[key], str), f"{key} 不是字符串", where)
                 elif key == "type":
                     _expect(p[key] in TICKET_TYPES, "type 不在四种票型里", where)
@@ -226,6 +229,8 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(isinstance(p["fragments"], list) and p["fragments"], "fragments 为空", where)
         if "root_of" in p:
             _expect(isinstance(p["root_of"], str) and p["root_of"], "root_of 为空", where)
+        if "rationale" in p:
+            _expect(isinstance(p["rationale"], str), "rationale 不是字符串", where)
     elif op == "decision.overturn":
         nd = p["new_decision"]
         _expect(isinstance(nd, dict), "new_decision 不是对象", where)
@@ -233,7 +238,8 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(isinstance(nd.get("statement"), str) and nd["statement"],
                     "new_decision.statement 为空", where)
         else:
-            allowed = {"id", "statement", "source_ticket", "output_files", "fragments", "root_of"}
+            allowed = {"id", "statement", "source_ticket", "output_files", "fragments", "root_of",
+                       "rationale"}
             _expect(set(nd) <= allowed, f"new_decision 多字段 {sorted(set(nd) - allowed)}", where)
             _expect({"id", "statement", "source_ticket", "output_files"} <= set(nd),
                     "new_decision 缺字段", where)
@@ -246,6 +252,8 @@ def _validate_payload_types(op, p, where, version=2):
                 _expect(isinstance(nd["fragments"], list) and nd["fragments"], "new_decision.fragments 为空", where)
             if "root_of" in nd:
                 _expect(isinstance(nd["root_of"], str) and nd["root_of"], "new_decision.root_of 为空", where)
+            if "rationale" in nd:
+                _expect(isinstance(nd["rationale"], str), "new_decision.rationale 不是字符串", where)
     elif op == "decision.void":
         _expect(isinstance(p["reason"], str) and p["reason"], "reason 为空", where)
     elif op == "premise.add":
