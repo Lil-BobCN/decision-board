@@ -82,25 +82,29 @@ def compute_plan(store, repo, map_id, gh_bin="gh"):
                 "detail": f"把 #{issue['id']} 挂到地图 {map_id} 下",
             })
         remote = remote_by_number.get(remote_number) or {}
-        remote_blockers = set(remote.get("blocked_by") or [])
-        local_blockers = set(issue["blocked_by"])
-        for blocker in sorted(local_blockers - remote_blockers):
+        remote_blockers = {int(b) for b in (remote.get("blocked_by") or [])}
+        local_by_number = {}
+        for blocker in issue["blocked_by"]:
             blocker_number = _remote_number(store, blocker, remote_by_number)
             if blocker_number is None:
                 warnings.append(f"#{issue['id']} 的阻塞项 {blocker} 无法镜像：它不在本图且没有 GitHub 号")
                 continue
+            local_by_number.setdefault(blocker_number, blocker)
+        local_blocker_numbers = set(local_by_number)
+        for blocker_number in sorted(local_blocker_numbers - remote_blockers):
+            blocker = local_by_number[blocker_number]
             actions.append({
                 "kind": "block.add", "phase": 3,
                 "ref": issue["id"], "blocker": blocker,
                 "blocker_number": blocker_number,
                 "detail": f"加阻塞：#{issue['id']} 被 {blocker} 挡",
             })
-        for blocker in sorted(remote_blockers - local_blockers):
+        for blocker_number in sorted(remote_blockers - local_blocker_numbers):
             actions.append({
                 "kind": "block.remove", "phase": 3,
-                "ref": issue["id"], "blocker": blocker,
-                "blocker_number": blocker,
-                "detail": f"移除阻塞：#{issue['id']} 不再被 {blocker} 挡",
+                "ref": issue["id"], "blocker": str(blocker_number),
+                "blocker_number": blocker_number,
+                "detail": f"移除阻塞：#{issue['id']} 不再被 {blocker_number} 挡",
             })
         # 评论
         remote_comments = remote.get("comments") or []
