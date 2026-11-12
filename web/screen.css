@@ -362,6 +362,7 @@ body.dragging-a *{cursor:grabbing!important;user-select:none}
 .signal-panel h3{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
 .filter-banner{display:flex;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent-deep);border-radius:var(--r-md);padding:7px 10px;font-size:12px;margin-bottom:10px}
 .filter-banner b{font-weight:600}
+.old-map-note{flex:none;margin:10px 14px 0;padding:6px 10px;border:1px dashed var(--border-strong);border-radius:var(--r-md);background:var(--surface-sunken);color:var(--text-muted);font-size:11.5px}
 
 /* ---------- 影响清单 ---------- */
 .impact-layout{display:grid;grid-template-columns:minmax(0,1fr) 392px;height:100%;min-height:0}

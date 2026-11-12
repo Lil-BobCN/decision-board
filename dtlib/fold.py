@@ -78,6 +78,8 @@ def apply_event(state, event):
         _fold_premise_edit(state, event)
     elif op == "premise.judge":
         _fold_premise_judge(state, event)
+    elif op == "premise.annotate":
+        _fold_premise_annotate(state, event)
     elif op == "impact.act":
         _fold_impact_act(state, event)
     elif op == "impact.close":
@@ -752,6 +754,13 @@ def _fold_premise_judge(state, event):
     premise["last_judged_by"] = event["actor"]
     premise["last_judged_reason"] = event.get("reason")
     premise["evidence"] = list(premise["evidence"]) + list(p["evidence"])
+
+
+def _fold_premise_annotate(state, event):
+    premise = _premise(state, event["target"])
+    if not premise.get("last_judged_at"):
+        raise DtError("前提还没判过，不能改判定理由")
+    premise["last_judged_reason"] = event.get("reason")
 
 
 def _premise(state, pid):

@@ -467,6 +467,7 @@ def board_view(store, map_id=None):
             "title": map_issue["title"],
             "body": map_issue.get("body", ""),
             "split_rationale": map_issue.get("split_rationale", ""),
+            "imported": map_id in store.sync.get("issues", {}),
             "state": map_issue["state"],
             "labels": map_issue.get("labels", []),
             "created_at": map_issue.get("created_at"),

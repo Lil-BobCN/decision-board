@@ -108,8 +108,12 @@
           ? U.esc(U.fmtTs(p.last_judged_at)) + "，" + U.esc(p.last_judged_by || "未记") + " 判 " + U.esc(p.state)
           : "还没判过") + "</p></li>" +
         "</ol>" +
+        '<div class="sb-quiet" style="margin-top:6px">判定理由：' +
+        (p.last_judged_at ? (p.last_judged_reason ? U.esc(p.last_judged_reason) : "未记录") : "还没判过") +
+        "</div>" +
         '<div class="sb-actions">' +
         '<button class="btn small" data-act="modal" data-val="judge-premise" data-arg="' + U.esc(p.id) + '">判前提</button>' +
+        (p.last_judged_at ? '<button class="btn small" data-act="modal" data-val="annotate-premise" data-arg="' + U.esc(p.id) + '">改判定理由</button>' : "") +
         "</div></div></details>";
     }).join("");
     var premBody = premises.length ? premRows :
@@ -122,6 +126,9 @@
       : "";
     var basis = '<p class="sb-lead">' + U.esc(d.statement) + "</p>" +
       '<div class="sb-quiet" style="margin-top:8px">' + (d.created_by ? U.esc(d.created_by) + " · " : "") + U.esc(U.fmtTs(d.created_at)) + "</div>" +
+      '<p class="sb-p" style="margin-top:9px">决定依据：' + (d.rationale ? U.esc(d.rationale) : "未记录") + "</p>" +
+      (d.rationale_source ? '<div class="sb-quiet">来源：' + U.esc(d.rationale_source) + "</div>" : "") +
+      '<div class="sb-actions"><button class="btn small" data-act="modal" data-val="annotate-decision" data-arg="' + U.esc(d.id) + '">编辑依据</button></div>' +
       files;
 
     var relRows = [];
@@ -187,7 +194,9 @@
           return '<li><span class="frag-n">' + String(f.index).padStart(2, "0") + "</span><span>" + U.esc(f.text) +
             (tickets.length ? '<br><span class="sb-quiet">' + tickets.map(function (t) { return "#" + U.esc(t.id); }).join("、") + "</span>" : ' <span class="chip red">缺口</span>') +
             "</span></li>";
-        }).join("") + "</ul>";
+        }).join("") + "</ul>" +
+        '<p class="sb-p" style="margin-top:8px">拆票理由：' + (board.map.split_rationale ? U.esc(board.map.split_rationale) : "未记录") + "</p>" +
+        '<div class="sb-actions"><button class="btn small" data-act="modal" data-val="edit-map-rationale" data-arg="' + U.esc(board.map.id) + '">编辑拆票理由</button></div>';
     }
 
     return '<div data-focus="decision:' + U.esc(did) + '"><div class="sb-head">' +
@@ -261,7 +270,7 @@
     var coverRows = covers.length ? '<ul class="frag-list" style="margin-top:8px">' + covers.map(function (f) {
       return '<li><span class="frag-n">第 ' + (f.index == null ? "?" : f.index) + " 句</span><span>" + U.esc(f.text) + "</span></li>";
     }).join("") + "</ul>" : '<p class="sb-quiet" style="margin-top:8px">没有 covers，这张票没接主句的哪一句。</p>';
-    var why = '<p class="sb-p">' + U.esc(t.split_reason || "（没有拆票理由）") + "</p>" +
+    var why = '<p class="sb-p">拆票理由：' + (t.split_reason ? U.esc(t.split_reason) : "未记录") + "</p>" +
       '<div class="sb-quiet" style="margin-top:9px">从哪条决定拆出</div>' + fromRows + inferredBlock +
       '<div class="sb-quiet" style="margin-top:9px">覆盖根决定哪几句</div>' + coverRows;
 
@@ -461,11 +470,32 @@
     return { derived_from: "派生", source_ticket: "来源票", covers: "覆盖", premise: "前提" }[r] || r;
   }
 
+  function missingRationale(board) {
+    var missing = 0;
+    if (!(board.map && board.map.split_rationale)) missing++;
+    (board.tickets || []).forEach(function (t) { if (!t.split_reason) missing++; });
+    (board.decisions || []).forEach(function (d) {
+      if (!d.rationale) missing++;
+      (d.premises || []).forEach(function (p) {
+        if (p.last_judged_at && !p.last_judged_reason) missing++;
+      });
+    });
+    return missing;
+  }
+
+  function rationaleNotice(board) {
+    if (!(board.map && board.map.imported)) return "";
+    var n = missingRationale(board);
+    if (!n) return "";
+    return '<div class="old-map-note">旧图导入，理由可能缺失 · ' + n + " 处未记录</div>";
+  }
+
   window.BoardPanels = {
     index: index, groupOf: groupOf,
     decisionPanel: decisionPanel, ticketPanel: ticketPanel, emptySidebar: emptySidebar,
     coveragePanel: coveragePanel, impactQueue: impactQueue, signalPanel: signalPanel,
     signalChips: signalChips, filterBanner: filterBanner, signalBadges: signalBadges,
-    currentCase: currentCase, triggerLabel: triggerLabel
+    currentCase: currentCase, triggerLabel: triggerLabel,
+    missingRationale: missingRationale, rationaleNotice: rationaleNotice
   };
 })();

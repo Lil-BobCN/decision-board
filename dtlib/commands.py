@@ -35,8 +35,9 @@ class Board:
         return self._next("impact", "IC")
 
     def _event(self, op, target, payload, actor, reason=None):
+        version = {"decision.annotate": 3, "premise.annotate": 4}.get(op, 2)
         return {
-            "v": 3 if op == "decision.annotate" else 2,
+            "v": version,
             "seq": self.store.last_seq + 1,
             "ts": now_ts(),
             "actor": actor,
@@ -278,6 +279,17 @@ class Board:
                     payload["impact_case"] = case_id
                     payload["impact_items"] = items
         return self._event("premise.judge", pid, payload, actor, reason)
+
+    def premise_annotate(self, actor, pid, reason_text):
+        """只改上次判定理由；不动状态、证据和影响清单。"""
+        premise = self.state["premises"].get(pid)
+        if not premise:
+            raise DtError(f"找不到前提 {pid}")
+        if not premise.get("last_judged_at"):
+            raise DtError(f"前提 {pid} 还没判过，不能改判定理由", 2)
+        if not reason_text or not reason_text.strip():
+            raise DtError("判定理由为空", 2)
+        return self._event("premise.annotate", pid, {}, actor, reason_text)
 
     # ---------- 影响清单 ----------
 
@@ -563,6 +575,8 @@ def dispatch(board, op, args, actor, reason=None):
     if op == "premise.judge":
         return board.premise_judge(
             actor, args["id"], args["verdict"], args.get("evidence") or [], reason or "")
+    if op == "premise.annotate":
+        return board.premise_annotate(actor, args["id"], reason or "")
     if op == "impact.act":
         options = {k: v for k, v in args.items() if k not in ("case", "kind", "ref", "action")}
         return board.impact_act(

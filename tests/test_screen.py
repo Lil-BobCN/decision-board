@@ -233,6 +233,13 @@ class TestBoard(Base):
         self.assertEqual(self.store.state["issues"]["10"]["derived_from_inferred"],
                          ["D-1-ROOT"])
 
+    def test_map_imported_flag(self):
+        map_id, _ = self.make_map()
+        self.assertFalse(board_view(self.store, map_id)["map"]["imported"])
+        self.store.sync_record({"type": "mapping", "kind": "issue",
+                                "local": map_id, "github": 999})
+        self.assertTrue(board_view(self.store, map_id)["map"]["imported"])
+
     def test_empty_map(self):
         map_id, root = self.make_map("只有一句。", ["只有一句。"])
         view = board_view(self.store, map_id)

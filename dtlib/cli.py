@@ -478,6 +478,10 @@ def cmd_premise(args):
         if args.evidence is not None:
             payload["evidence"] = args.evidence
         _post(args, "premise.edit", payload)
+    elif args.action == "annotate":
+        _post(args, "premise.annotate", {
+            "id": args.id, "reason": args.reason,
+        })
     else:
         if not args.reason:
             raise DtError("判定必须给理由 --reason", EXIT_USAGE)
@@ -758,6 +762,10 @@ def build_parser():
     pj.add_argument("--evidence", action="append")
     pj.add_argument("--reason")
     pj.set_defaults(func=cmd_premise)
+    pan = psub.add_parser("annotate", help="改上次判定理由，不动状态和证据")
+    pan.add_argument("id")
+    pan.add_argument("--reason", required=True)
+    pan.set_defaults(func=cmd_premise)
 
     p = sub.add_parser("impact", help="影响清单")
     isub2 = p.add_subparsers(dest="action", required=True)

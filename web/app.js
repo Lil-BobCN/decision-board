@@ -316,6 +316,7 @@
         "</span><span>·</span><span>已处理 " + done + "/" + current.items.length + '</span><span class="spacer"></span>' +
         '<button class="btn small" data-act="mode" data-val="impact">开始处理</button></div>';
     }
+    out += BoardPanels.rationaleNotice(b);
     return out;
   }
 
@@ -518,6 +519,8 @@
       "add-premise": "加前提", "judge-premise": "判前提", "overturn": "推翻决定",
       "edit-ticket": "改票", "add-comment": "写评论", "edit-comment": "改评论",
       "new-ticket": "新建票", "state-ticket": "关闭 / 重开票",
+      "edit-map-rationale": "编辑地图拆票理由", "annotate-decision": "编辑决定依据",
+      "annotate-premise": "改判定理由",
       "impact-act": "处理受影响项", "impact-close": "关闭影响清单", "sync": "同步到 GitHub 镜像"
     }[kind] || "操作";
   }
@@ -535,6 +538,7 @@
     var p = m.target ? findPremise(m.target) : null;
     if (p) return U.esc(p.id + " · " + U.trunc(p.statement, 36));
     if (m.kind === "new-ticket") return "挂在地图 #" + U.esc(state.mapId) + " 下";
+    if (m.kind === "edit-map-rationale") return U.esc("地图 #" + state.mapId + " · " + state.board.map.title);
     return "";
   }
 
@@ -563,6 +567,21 @@
         (root ? '<label>新根决定的拆句（一行一句；留空按句号切）</label><textarea name="fragments" placeholder="一行一句"></textarea>' : "") +
         '<label>理由</label><input name="reason" placeholder="为什么推翻">' +
         '<p class="note">旧决定标「已被取代」，新决定取代它。旧决定不重开。</p>';
+    }
+    if (kind === "annotate-decision") {
+      var ad = findDecision(target);
+      return '<label>决定依据</label><textarea name="rationale" required placeholder="写一句为什么这么定，带来源">' + U.esc(ad ? ad.rationale : "") + "</textarea>" +
+        '<label>来源（可空）</label><input name="source" value="' + U.esc(ad ? ad.rationale_source : "") + '" placeholder="C-0018、中台/docs/adr/0001-*.md">' +
+        '<p class="note">写一条 decision.annotate 事件，只改依据和来源，不改陈述和状态。</p>';
+    }
+    if (kind === "annotate-premise") {
+      var ap = findPremise(target);
+      return '<label>判定理由</label><textarea name="reason" required>' + U.esc(ap ? ap.last_judged_reason : "") + "</textarea>" +
+        '<p class="note">写一条 premise.annotate 事件，只改上次判定理由，不动状态、证据和影响清单。</p>';
+    }
+    if (kind === "edit-map-rationale") {
+      return '<label>拆票理由</label><textarea name="split_rationale">' + U.esc(state.board.map.split_rationale || "") + "</textarea>" +
+        '<p class="note">写一条 issue.edit 事件，只改这张地图的拆票理由。留空显示「未记录」。</p>';
     }
     if (kind === "edit-ticket") {
       var t = findTicket(target);
@@ -786,6 +805,21 @@
       };
       if (d && d.root_of) args.fragments = fragments;
       work = command("decision.overturn", args, formValue(fd, "reason"));
+    } else if (kind === "annotate-decision") {
+      work = command("decision.annotate", {
+        id: target,
+        rationale: formValue(fd, "rationale"),
+        source: formValue(fd, "source") || null
+      });
+    } else if (kind === "annotate-premise") {
+      work = command("premise.annotate", {
+        id: target
+      }, formValue(fd, "reason"));
+    } else if (kind === "edit-map-rationale") {
+      work = command("issue.edit", {
+        id: target,
+        split_rationale: formValue(fd, "split_rationale")
+      });
     } else if (kind === "edit-ticket") {
       work = command("issue.edit", {
         id: target,

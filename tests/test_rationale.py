@@ -1,6 +1,7 @@
 """理由字段、导入解析和 --payload 导入的测试。不联网，不碰真实数据目录。"""
 from __future__ import annotations
 
+import copy
 import os
 import sys
 import tempfile
@@ -110,6 +111,54 @@ class TestRationaleModel(Base):
         self.assertEqual(
             self.store.state["premises"][p["target"]]["last_judged_reason"],
             "来源：中台/dtlib/cli.py。")
+
+    def make_judged_premise(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"])
+        d = self.board.decision_create("agent:test", "决定", source_ticket=ticket)
+        self.append(d)
+        p = self.board.premise_add("agent:test", d["target"], "前提", ["#170"])
+        self.append(p)
+        self.append(self.board.premise_judge(
+            "agent:test", p["target"], "已破", ["新证据"], "来源：C-0001。"))
+        return map_id, d["target"], p["target"]
+
+    def test_premise_annotate_rewrites_reason_without_side_effects(self):
+        _, _, pid = self.make_judged_premise()
+        before = copy.deepcopy(self.store.state["premises"][pid])
+        cases_before = len(self.store.state["impact_cases"])
+        event = self.board.premise_annotate("agent:test", pid, "改过的理由。")
+        self.assertEqual(event["v"], 4)
+        self.append(event)
+        after = self.store.state["premises"][pid]
+        self.assertEqual(after["last_judged_reason"], "改过的理由。")
+        for key in ("state", "last_judged_at", "last_judged_by", "evidence", "statement"):
+            self.assertEqual(after[key], before[key], key)
+        self.assertEqual(len(self.store.state["impact_cases"]), cases_before)
+
+    def test_premise_annotate_requires_judged_premise(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"])
+        d = self.board.decision_create("agent:test", "决定", source_ticket=ticket)
+        self.append(d)
+        p = self.board.premise_add("agent:test", d["target"], "前提", [])
+        self.append(p)
+        with self.assertRaises(DtError):
+            self.board.premise_annotate("agent:test", p["target"], "还没判过")
+
+    def test_premise_annotate_rejects_empty_reason(self):
+        _, _, pid = self.make_judged_premise()
+        with self.assertRaises(DtError):
+            self.board.premise_annotate("agent:test", pid, "  ")
+
+    def test_premise_annotate_only_accepts_v4(self):
+        _, _, pid = self.make_judged_premise()
+        event = self.board.premise_annotate("agent:test", pid, "新理由。")
+        validate_event(event)
+        too_old = dict(event)
+        too_old["v"] = 3
+        with self.assertRaises(DtError):
+            validate_event(too_old)
 
     def test_decision_annotate_writes_rationale_and_source(self):
         map_id, root = self.make_map()
@@ -437,6 +486,11 @@ class TestPayloadImport(unittest.TestCase):
         ])
         self.assertEqual(args.action, "annotate")
         self.assertEqual(args.source, "C-0018。")
+        args = parser.parse_args([
+            "premise", "annotate", "P-0001", "--reason", "改过的理由。",
+        ])
+        self.assertEqual(args.action, "annotate")
+        self.assertEqual(args.reason, "改过的理由。")
 
 
 if __name__ == "__main__":

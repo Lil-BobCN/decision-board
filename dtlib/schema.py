@@ -16,6 +16,7 @@ OPS_V2 = OPS_V1 | {
     "issue.confirm_derived",
 }
 OPS_V3 = OPS_V2 | {"decision.annotate"}
+OPS_V4 = OPS_V3 | {"premise.annotate"}
 
 TICKET_TYPES = ("grilling", "research", "prototype", "task")
 VERDICTS = ("成立", "已破", "未知")
@@ -95,6 +96,10 @@ _SCHEMAS = {
 _SCHEMAS[3] = dict(_SCHEMAS[2])
 _SCHEMAS[3]["decision.annotate"] = ({"rationale"}, {"source"})
 
+# v4 只加一个只改上次判定理由的 op；其余事件按 v3 折叠。
+_SCHEMAS[4] = dict(_SCHEMAS[3])
+_SCHEMAS[4]["premise.annotate"] = (set(), set())
+
 _TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
 _ACTOR_RE = re.compile(r"^(human|agent):.+$")
 
@@ -127,6 +132,8 @@ def validate_event(event, line_no=None):
     schemas = _SCHEMAS[version]
     if op not in schemas:
         raise DtError(f"{where}不认识的 op {op!r}（版本 {version}）")
+    if op == "premise.annotate" and not (event.get("reason") or "").strip():
+        raise DtError(f"{where}的 premise.annotate 缺判定理由")
     required, optional = schemas[op]
     payload = event["payload"]
     if not isinstance(payload, dict):
@@ -273,6 +280,8 @@ def _validate_payload_types(op, p, where, version=2):
     elif op == "premise.judge":
         _expect(p["verdict"] in VERDICTS, "verdict 只能是成立、已破、未知", where)
         _expect(_str_list(p["evidence"]), "evidence 不是字符串数组", where)
+    elif op == "premise.annotate":
+        pass
     elif op == "premise.edit":
         for key in ("statement", "evidence"):
             if key in p:
