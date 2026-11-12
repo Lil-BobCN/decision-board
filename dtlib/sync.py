@@ -517,9 +517,13 @@ def execute_plan(store, repo, map_id, plan, gh_bin="gh"):
         ref = action.get("ref")
         try:
             if kind == "comment.map":
-                store.sync_record({"type": "mapping", "kind": "issue", "local": ref,
-                                   "github": action["issue_number"]})
-                new_numbers[ref] = action["issue_number"]
+                if "issue_number" in action:
+                    store.sync_record({"type": "mapping", "kind": "issue", "local": ref,
+                                       "github": action["issue_number"]})
+                    new_numbers[ref] = action["issue_number"]
+                else:
+                    store.sync_record({"type": "mapping", "kind": "comment", "local": ref,
+                                       "github": action["remote_id"]})
             elif kind == "issue.create":
                 data = gh.api(f"repos/{repo}/issues", method="POST", input_json={
                     "title": action["title"], "body": action["body"],

@@ -173,6 +173,27 @@ class TestSync(unittest.TestCase):
             plan2 = compute_plan(self.store, "Example/repo", self.map_id)
         self.assertEqual(plan2["actions"], [], plan2)
 
+    def test_comment_map_uses_remote_id(self):
+        ticket = self._ticket()
+        comment = self.board.comment_add("agent:test", ticket, "同正文评论")
+        self.store.append_event(comment)
+        fake = self._fake(selected=True)
+        fake.add_issue(200, "新票", "票正文", labels=["wayfinder:task"])
+        fake.subs[139] = [200]
+        self.store.sync_record({"type": "mapping", "kind": "issue",
+                                "local": ticket, "github": 200})
+        fake.comments[200] = [{"id": 901, "body": "同正文评论"}]
+
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            plan = compute_plan(self.store, "Example/repo", self.map_id)
+        maps = [a for a in plan["actions"] if a["kind"] == "comment.map"]
+        self.assertEqual(len(maps), 1, plan["actions"])
+
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            result = execute_plan(self.store, "Example/repo", self.map_id, plan)
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(self.store.sync["comments"][comment["target"]], 901)
+
     def test_state_and_comment_edit_delete(self):
         ticket = self._ticket()
         fake = self._fake(selected=True)
