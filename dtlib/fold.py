@@ -70,6 +70,8 @@ def apply_event(state, event):
         _fold_decision_overturn(state, event)
     elif op == "decision.void":
         _fold_decision_void(state, event)
+    elif op == "decision.annotate":
+        _fold_decision_annotate(state, event)
     elif op == "premise.add":
         _fold_premise_add(state, event)
     elif op == "premise.edit":
@@ -141,6 +143,7 @@ def _fold_import(state, event):
             "source_ticket": None,
             "output_files": root.get("output_files", []),
             "rationale": root.get("rationale", ""),
+            "rationale_source": root.get("rationale_source", ""),
             "status": "active",
             "supersedes": [],
             "superseded_by": None,
@@ -194,6 +197,9 @@ def _fold_import(state, event):
         did = str(item["id"])
         if did in state["decisions"]:
             raise DtError(f"导入的决定编号重复：{did}")
+        status = item.get("status") or "active"
+        if status not in ("active", "superseded"):
+            raise DtError(f"导入的决定状态只能是 active 或 superseded：{did}")
         _put_decision(state, {
             "id": did,
             "statement": item["statement"],
@@ -202,7 +208,8 @@ def _fold_import(state, event):
             "source_ticket": str(item["source_ticket"]) if item.get("source_ticket") else None,
             "output_files": list(item.get("output_files", [])),
             "rationale": item.get("rationale", ""),
-            "status": "active",
+            "rationale_source": item.get("rationale_source", ""),
+            "status": status,
             "supersedes": [],
             "superseded_by": None,
             "last_still_valid_at": None,
@@ -295,13 +302,16 @@ def _recount(state):
         if cid.startswith("C-"):
             counters["comment"] = max(counters["comment"], int(cid[2:]) + 1)
     for pid in state["premises"]:
-        if pid.startswith("P-"):
+        if pid.startswith("P-") and pid[2:].isdigit():
             counters["premise"] = max(counters["premise"], int(pid[2:]) + 1)
     for did in state["decisions"]:
         if did.startswith("D-") and not did.endswith("-ROOT"):
             part = did[2:].split("-")[0]
             if part.isdigit():
                 counters["decision"] = max(counters["decision"], int(part) + 1)
+    for iid in state["impact_cases"]:
+        if iid.startswith("IC-") and iid[3:].isdigit():
+            counters["impact"] = max(counters["impact"], int(iid[3:]) + 1)
     state["counters"] = counters
 
 
@@ -600,6 +610,7 @@ def _fold_decision_create(state, event):
         "source_ticket": p.get("source_ticket"),
         "output_files": list(p["output_files"]),
         "rationale": p.get("rationale", ""),
+        "rationale_source": p.get("rationale_source", ""),
         "status": "active",
         "supersedes": [],
         "superseded_by": None,
@@ -634,6 +645,7 @@ def _fold_decision_overturn(state, event):
         "source_ticket": nd.get("source_ticket"),
         "output_files": list(nd.get("output_files", [])),
         "rationale": nd.get("rationale", ""),
+        "rationale_source": nd.get("rationale_source", ""),
         "status": "active",
         "supersedes": [old["id"]],
         "superseded_by": None,
@@ -658,6 +670,13 @@ def _fold_decision_void(state, event):
     d["void_reason"] = event["payload"]["reason"]
     d["voided_at"] = event["ts"]
     _invalidate_decision_items(state, d["id"])
+
+
+def _fold_decision_annotate(state, event):
+    """只补记依据和来源，不改陈述、状态和取代边。"""
+    d = _decision(state, event["target"])
+    d["rationale"] = event["payload"]["rationale"]
+    d["rationale_source"] = event["payload"].get("source", "")
 
 
 def _decision(state, did):

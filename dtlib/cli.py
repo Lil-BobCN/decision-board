@@ -181,6 +181,8 @@ def _print_decision(view):
     if d.get("output_files"):
         print(f"产出文件：{'、'.join(d['output_files'])}")
     print(f"依据：{d.get('rationale') or '未记录'}")
+    if d.get("rationale_source"):
+        print(f"依据来源：{d['rationale_source']}")
     if view.get("red"):
         print("红色：有未处理的已破前提")
     if d.get("superseded_by"):
@@ -451,6 +453,12 @@ def cmd_decision(args):
             "output_files": args.output_files or [],
             "fragments": args.fragment or [],
             "rationale": args.rationale,
+        })
+    elif args.action == "annotate":
+        _post(args, "decision.annotate", {
+            "id": args.id,
+            "rationale": args.rationale,
+            "source": args.source,
         })
     else:
         _post(args, "decision.void", {"id": args.id, "void_reason": args.reason})
@@ -726,6 +734,11 @@ def build_parser():
     dv.add_argument("id")
     dv.add_argument("--reason", required=True)
     dv.set_defaults(func=cmd_decision)
+    da = dsub.add_parser("annotate", help="补记依据和来源，不改陈述和状态")
+    da.add_argument("id")
+    da.add_argument("--rationale", required=True)
+    da.add_argument("--source", help="来源指针，如 C-0018 或 中台/docs/adr/0001-*.md")
+    da.set_defaults(func=cmd_decision)
 
     p = sub.add_parser("premise", help="前提")
     psub = p.add_subparsers(dest="action", required=True)
