@@ -119,6 +119,24 @@ class TestDecisionsAndImpact(Base):
         self.assertEqual(self.store.state["decisions"][d1]["source_ticket"], t1)
         self.assertEqual(self.store.state["issues"][t2]["derived_from"], [d1])
 
+    def test_decision_created_with_explicit_id(self):
+        map_id, root = self.make_map("根句。")
+        t1 = self.make_ticket(map_id, root["id"], "产决定的票")
+        event = self.board.decision_create(
+            "agent:test", "带后缀的决定", source_ticket=t1, did="D-0001a")
+        self.append(event)
+        self.assertEqual(event["target"], "D-0001a")
+        self.assertEqual(self.store.state["decisions"]["D-0001a"]["source_ticket"], t1)
+
+        dup = self.board.decision_create(
+            "agent:test", "重号的决定", source_ticket=t1, did="D-0001a")
+        with self.assertRaises(DtError):
+            self.append(dup)
+
+        with self.assertRaises(DtError):
+            self.board.decision_create(
+                "agent:test", "坏编号", source_ticket=t1, did="0001")
+
     def test_overturn_range(self):
         _, root, t1, d1, t2, d2 = self._setup_chain()
         event = self.board.decision_overturn(

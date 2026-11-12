@@ -131,8 +131,12 @@ class Board:
     # ---------- 决定 ----------
 
     def decision_create(self, actor, statement, source_ticket=None, output_files=None,
-                        fragments=None, root_of=None, reason=None):
-        did = self.next_decision_id()
+                        fragments=None, root_of=None, reason=None, did=None):
+        if did:
+            if not did.startswith("D-") or any(ch.isspace() for ch in did):
+                raise DtError(f"决定编号不合法：{did}", 2)
+        else:
+            did = self.next_decision_id()
         payload = {
             "statement": statement,
             "source_ticket": source_ticket,
@@ -488,6 +492,7 @@ def dispatch(board, op, args, actor, reason=None):
             fragments=args.get("fragments"),
             root_of=args.get("root_of"),
             reason=reason,
+            did=args.get("id"),
         )
     if op == "decision.overturn":
         return board.decision_overturn(

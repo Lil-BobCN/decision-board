@@ -396,6 +396,7 @@ def cmd_decision(args):
         if not args.root_of and not args.source_ticket:
             raise DtError("非根决定必须给 --source-ticket", EXIT_USAGE)
         _post(args, "decision.create", {
+            "id": args.id,
             "statement": args.statement,
             "source_ticket": args.source_ticket,
             "output_files": args.output_files or [],
@@ -656,6 +657,7 @@ def build_parser():
     dsub = p.add_subparsers(dest="action", required=True)
     dc = dsub.add_parser("create")
     dc.add_argument("--statement", required=True)
+    dc.add_argument("--id", help="指定决定编号，如 D-0025a；不写则按顺序发号")
     dc.add_argument("--source-ticket")
     dc.add_argument("--output-files", nargs="*")
     dc.add_argument("--fragment", action="append")
