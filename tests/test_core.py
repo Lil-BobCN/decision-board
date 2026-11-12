@@ -239,9 +239,12 @@ class TestWorkState(unittest.TestCase):
                           "parent": "1"},
                     "3": {"id": "3", "kind": "ticket", "state": "open", "blocked_by": ["99"],
                           "parent": "1"},
+                    "I-9": {"id": "I-9", "kind": "ticket", "state": "open", "blocked_by": [],
+                            "parent": "1"},
                 },
                 "premises": {}, "decisions": {},
             }
+            sync = {"issues": {"I-9": 170, "2": 2}}
             def read_workstate(self):
                 return {"tickets": {}}
             def write_workstate(self, data):
@@ -256,6 +259,24 @@ class TestWorkState(unittest.TestCase):
         self.assertEqual(self.poller._ticket_of({"linkedIssue": 2}), "2")
         self.assertEqual(self.poller._ticket_of({"branch": "Lil-BobCN/issue-2"}), "2")
         self.assertIsNone(self.poller._ticket_of({"branch": "main"}))
+
+    def test_linked_issue_reverse_maps_to_local_ticket(self):
+        tickets = self.poller.compute_tickets([
+            {"repoId": "r1", "linkedIssue": 170, "status": "working"},
+        ])
+        self.assertEqual(tickets["I-9"]["state"], "进行中")
+
+    def test_branch_reverse_maps_to_local_ticket(self):
+        tickets = self.poller.compute_tickets([
+            {"repoId": "r1", "branch": "refs/heads/Lil-BobCN/issue-170", "status": "working"},
+        ])
+        self.assertEqual(tickets["I-9"]["state"], "进行中")
+
+    def test_imported_ticket_id_direct_lookup_unchanged(self):
+        tickets = self.poller.compute_tickets([
+            {"repoId": "r1", "linkedIssue": 2, "status": "working"},
+        ])
+        self.assertEqual(tickets["2"]["state"], "进行中")
 
     def test_merge_status(self):
         self.assertEqual(self.poller._merge_status([])[0], "未领取")

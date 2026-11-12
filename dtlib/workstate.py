@@ -126,7 +126,7 @@ class WorkStatePoller:
                 continue
             if wt.get("repoId") not in repo_ids:
                 continue
-            tid = self._ticket_of(wt)
+            tid = self._local_ticket_id(self._ticket_of(wt))
             if not tid:
                 continue
             ticket = state["issues"].get(tid)
@@ -156,6 +156,18 @@ class WorkStatePoller:
                 "note": note or None,
             }
         return result
+
+    def _local_ticket_id(self, tid):
+        """GitHub 号换成中台本地票号；本地号能直接命中时原样返回。"""
+        if not tid:
+            return tid
+        if tid in self.store.state["issues"]:
+            return tid
+        sync = getattr(self.store, "sync", None) or {}
+        for local, number in (sync.get("issues") or {}).items():
+            if str(number) == tid:
+                return str(local)
+        return tid
 
     def _ticket_of(self, wt):
         linked = wt.get("linkedIssue")

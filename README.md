@@ -83,7 +83,7 @@
 
 ## 工作状态
 
-服务每 2 秒跑一次 `orca worktree ps --json`，按 `repoId` 加 `linkedIssue` 映射到票，分支名 `issue-<N>` 兜底。状态四个：`未领取`、`进行中`、`等待人`、`被挡`。连续两次失败显示离线，快照保留最后一次状态。工作状态不进事件，不进状态哈希。
+服务每 2 秒跑一次 `orca worktree ps --json`，按 `repoId` 加 `linkedIssue` 映射到票，分支名 `issue-<N>` 兜底。`linkedIssue` 和分支名带 GitHub 号时，先用本地票号直接查；查不到再用 `sync.jsonl` 的 `I-xxxx -> GitHub 号` 反查。导入票的本地号等于 GitHub 号，直接查得到。状态四个：`未领取`、`进行中`、`等待人`、`被挡`。连续两次失败显示离线，快照保留最后一次状态。工作状态不进事件，不进状态哈希。
 
 ## 测试
 
