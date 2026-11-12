@@ -82,6 +82,7 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
     main, fragments, coverage = parse_destination(issue.get("body") or "")
     if not fragments:
         raise DtError("地图正文里找不到 Destination 覆盖表，也切不出拆句")
+    map_split_rationale = parse_split_rationale(issue.get("body") or "")
 
     tickets = []
     ticket_comments = {}
@@ -101,7 +102,7 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
                        for l in sub.get("labels", []) if _label_name(l) and not _label_name(l).startswith("wayfinder:")],
             "parent": map_id,
             "blocked_by": blocked_by,
-            "split_reason": "",
+            "split_reason": parse_split_rationale(sub.get("body") or ""),
             "derived_from": [root_id],
             "derived_from_inferred": [],
             "covers": [],
@@ -130,6 +131,12 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
             })
             github_comments[cid] = item.get("id")
 
+    rationales = {}
+    for issue_id, items in ordered:
+        for item in sorted(items, key=lambda c: (c.get("created_at") or "", c.get("id") or 0)):
+            for did, text in parse_rationale_sections(item.get("body") or "").items():
+                _merge_rationale(rationales, did, text)
+
     decisions = []
     seen = {}
     for issue_id, items in ordered:
@@ -145,12 +152,19 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
                     for path in row["output_files"]:
                         if path not in seen[did]["output_files"]:
                             seen[did]["output_files"].append(path)
+                    rationale = rationales.get(did, "")
+                    if rationale:
+                        old_rationale = seen[did].get("rationale") or ""
+                        if old_rationale and old_rationale != rationale:
+                            raise DtError(f"决定 {did} 在两条评论里依据不同，导入前先人工核对")
+                        seen[did]["rationale"] = rationale
                     continue
                 record = {
                     "id": did,
                     "statement": row["statement"],
                     "source_ticket": None if issue_id == map_id else issue_id,
                     "output_files": row["output_files"],
+                    "rationale": rationales.get(did, ""),
                     "created_at": item.get("created_at"),
                     "created_by": _author(item),
                     "supersedes": row["supersedes"],
@@ -183,6 +197,9 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
         if not ticket["type"]:
             ticket["type"] = "task"
             warnings.append(f"票 #{ticket['id']} 没有 wayfinder:<type> 标签，按 task 导入")
+    for did in sorted(rationales):
+        if did not in seen:
+            warnings.append(f"关票评论里的依据 {did} 找不到对应决定，未记入")
 
     map_labels = [_label_name(l) for l in issue.get("labels", [])]
     payload = {
@@ -191,6 +208,7 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
             "kind": "map",
             "title": issue.get("title") or "",
             "body": normalize_map_body(issue.get("body") or ""),
+            "split_rationale": map_split_rationale,
             "state": issue.get("state") or "open",
             "labels": [l for l in map_labels if l and not l.startswith("wayfinder:")],
             "created_at": issue.get("created_at"),
@@ -374,6 +392,52 @@ def parse_destination(body):
     return main, [r["text"] for r in rows], rows
 
 
+def parse_split_rationale(body):
+    """读正文里 ## 拆票理由 一节；没有写返回空串。"""
+    for heading, text in _sections(body or ""):
+        if heading.startswith("## 拆票理由") and text.strip():
+            return text.strip()
+    return ""
+
+
+_RATIONALE_ENTRY_RE = re.compile(
+    r"^\s*[-*]\s*(D-[A-Za-z0-9][A-Za-z0-9-]*)\s*[：:]\s*(.*)$")
+_RATIONALE_PLAIN_RE = re.compile(
+    r"^\s*(D-[A-Za-z0-9][A-Za-z0-9-]*)\s*[：:]\s*(.*)$")
+
+
+def parse_rationale_sections(text):
+    """读关票评论里 ## 依据 一节，返回 {决定号: 理由}。"""
+    result = {}
+    for heading, section in _sections(text or ""):
+        if not heading.startswith("## 依据"):
+            continue
+        current = None
+        buf = []
+        for line in section.splitlines():
+            match = _RATIONALE_ENTRY_RE.match(line) or _RATIONALE_PLAIN_RE.match(line)
+            if match:
+                if current:
+                    _merge_rationale(result, current, "\n".join(buf).strip())
+                current = match.group(1)
+                first = match.group(2).strip()
+                buf = [first] if first else []
+                continue
+            if current is not None:
+                buf.append(line.rstrip())
+        if current:
+            _merge_rationale(result, current, "\n".join(buf).strip())
+    return result
+
+
+def _merge_rationale(result, did, text):
+    if not text:
+        return
+    if did in result and result[did] != text:
+        raise DtError(f"决定 {did} 在两条评论里依据不同，导入前先人工核对")
+    result[did] = text
+
+
 def _first_sentence(text):
     for index, char in enumerate(text):
         if char in "。！？":
@@ -496,6 +560,8 @@ def normalize_map_body(body):
         if heading.startswith("## Destination 覆盖表"):
             continue
         if heading.startswith("## Decisions so far"):
+            continue
+        if heading.startswith("## 拆票理由"):
             continue
         if heading.startswith("## Destination"):
             continue

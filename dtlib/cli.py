@@ -44,7 +44,7 @@ class Client:
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
             headers["Content-Type"] = "application/json; charset=utf-8"
         request = urllib.request.Request(url, data=body, headers=headers, method=method)
-        timeout = 300 if path in ("/import", "/sync/run") else 60
+        timeout = 300 if path in ("/import", "/import/payload", "/sync/run") else 60
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 payload = json.loads(response.read().decode("utf-8"))
@@ -138,6 +138,7 @@ def _print_issue(view):
         if view.get("produced_decisions"):
             print("产出决定：" + "、".join(d["id"] for d in view["produced_decisions"]))
     else:
+        print(f"拆票理由：{issue.get('split_rationale') or '未记录'}")
         root = view.get("root")
         if root:
             print(f"根决定：{root['id']}  {root['statement']}")
@@ -179,6 +180,7 @@ def _print_decision(view):
         print(f"来源票：#{d['source_ticket']}")
     if d.get("output_files"):
         print(f"产出文件：{'、'.join(d['output_files'])}")
+    print(f"依据：{d.get('rationale') or '未记录'}")
     if view.get("red"):
         print("红色：有未处理的已破前提")
     if d.get("superseded_by"):
@@ -192,6 +194,8 @@ def _print_decision(view):
             print(f"  {p['id']} [{p['state']}] {p['statement']}")
             if p.get("evidence"):
                 print(f"    证据：{'、'.join(p['evidence'])}")
+            if p.get("last_judged_reason"):
+                print(f"    上次判定理由：{p['last_judged_reason']}")
     else:
         print("前提：无（裸决定）")
 
@@ -247,8 +251,25 @@ def cmd_open(args):
 
 def cmd_import(args):
     client = client_for(args)
-    data = client.post("/import", {"map": args.map, "actor": args.actor or current_actor()})
-    print(f"导入完成：地图 {args.map}")
+    actor = args.actor or current_actor()
+    if getattr(args, "payload", None):
+        if getattr(args, "map", None):
+            raise DtError("--payload 和 github 地图号只能给一个", EXIT_USAGE)
+        try:
+            with open(args.payload, encoding="utf-8") as f:
+                payload = json.load(f)
+        except OSError as exc:
+            raise DtError(f"读不了 payload 文件：{exc}", EXIT_USAGE)
+        except json.JSONDecodeError as exc:
+            raise DtError(f"payload 文件不是合法 JSON：{exc}", EXIT_USAGE)
+        data = client.post("/import/payload", {"payload": payload, "actor": actor})
+        map_id = str((payload.get("map") or {}).get("id") or args.payload)
+        print(f"导入完成：地图 {map_id}")
+    else:
+        if not getattr(args, "map", None):
+            raise DtError("导入要给 github <地图号> 或 --payload <文件>", EXIT_USAGE)
+        data = client.post("/import", {"map": args.map, "actor": actor})
+        print(f"导入完成：地图 {args.map}")
     counts = data.get("counts") or {}
     print("、".join(f"{k} {v}" for k, v in counts.items()))
     for warning in data.get("warnings") or []:
@@ -268,6 +289,8 @@ def cmd_show(args):
         print(f"所属决定：{p['decision']}")
         if p.get("evidence"):
             print(f"证据：{'、'.join(p['evidence'])}")
+        if p.get("last_judged_reason"):
+            print(f"判定理由：{p['last_judged_reason']}")
     elif ident.startswith("IC-"):
         _print_impact(client.get(f"/impact/{ident}"))
     elif ident.isdigit() or ident.startswith("I-"):
@@ -317,6 +340,7 @@ def cmd_issue_create(args):
         payload = {
             "kind": "map", "title": args.title, "body": args.body or "",
             "labels": args.label or [], "parent": None, "state": args.state,
+            "split_rationale": args.split_rationale or "",
             "destination": destination,
         }
     else:
@@ -332,7 +356,9 @@ def cmd_issue_create(args):
             "kind": "ticket", "title": args.title, "body": args.body or "",
             "labels": args.label or [], "parent": args.parent, "state": args.state,
             "type": args.type, "split_reason": args.split_reason,
-            "derived_from": args.derived_from, "covers": args.covers or [],
+            "derived_from": args.derived_from,
+            "derived_from_inferred": args.derived_from_inferred or [],
+            "covers": args.covers or [],
         }
     _post(args, "issue.create", payload)
     return 0
@@ -340,12 +366,14 @@ def cmd_issue_create(args):
 
 def cmd_issue_edit(args):
     payload = {"id": args.id}
-    for key in ("title", "body", "type", "split_reason"):
+    for key in ("title", "body", "type", "split_reason", "split_rationale"):
         value = getattr(args, key)
         if value is not None:
             payload[key] = value
     if args.derived_from is not None:
         payload["derived_from"] = args.derived_from
+    if args.derived_from_inferred is not None:
+        payload["derived_from_inferred"] = args.derived_from_inferred
     if args.covers is not None:
         payload["covers"] = args.covers
     _post(args, "issue.edit", payload)
@@ -413,6 +441,7 @@ def cmd_decision(args):
             "output_files": args.output_files or [],
             "fragments": args.fragment or [],
             "root_of": args.root_of,
+            "rationale": args.rationale,
         })
     elif args.action == "overturn":
         _post(args, "decision.overturn", {
@@ -421,6 +450,7 @@ def cmd_decision(args):
             "source_ticket": args.source_ticket,
             "output_files": args.output_files or [],
             "fragments": args.fragment or [],
+            "rationale": args.rationale,
         })
     else:
         _post(args, "decision.void", {"id": args.id, "void_reason": args.reason})
@@ -580,11 +610,12 @@ def build_parser():
     sub.add_parser("health", help="看服务状态").set_defaults(func=cmd_health)
     sub.add_parser("open", help="打开屏幕").set_defaults(func=cmd_open)
 
-    p = sub.add_parser("import", help="从 GitHub 导入")
-    ip = p.add_subparsers(dest="source", required=True)
+    p = sub.add_parser("import", help="从 GitHub 或本地 payload 导入")
+    p.add_argument("--payload", help="本地导入 payload JSON 文件")
+    ip = p.add_subparsers(dest="source")
     g = ip.add_parser("github")
     g.add_argument("map")
-    g.set_defaults(func=cmd_import)
+    p.set_defaults(func=cmd_import)
 
     p = sub.add_parser("show", help="看一张票、决定、前提或影响清单")
     p.add_argument("id")
@@ -603,7 +634,9 @@ def build_parser():
     c.add_argument("--parent")
     c.add_argument("--type", choices=["grilling", "research", "prototype", "task"])
     c.add_argument("--split-reason")
+    c.add_argument("--split-rationale", help="地图级拆票理由")
     c.add_argument("--derived-from", nargs="*")
+    c.add_argument("--derived-from-inferred", nargs="*")
     c.add_argument("--covers", nargs="*")
     c.add_argument("--label", action="append")
     c.add_argument("--state", choices=["open", "closed"], default="open")
@@ -616,7 +649,9 @@ def build_parser():
     e.add_argument("--body")
     e.add_argument("--type", choices=["grilling", "research", "prototype", "task"])
     e.add_argument("--split-reason")
+    e.add_argument("--split-rationale", help="地图级拆票理由")
     e.add_argument("--derived-from", nargs="*")
+    e.add_argument("--derived-from-inferred", nargs="*")
     e.add_argument("--covers", nargs="*")
     e.set_defaults(func=cmd_issue_edit)
     s = isub.add_parser("state")
@@ -677,6 +712,7 @@ def build_parser():
     dc.add_argument("--output-files", nargs="*")
     dc.add_argument("--fragment", action="append")
     dc.add_argument("--root-of")
+    dc.add_argument("--rationale", help="决定依据")
     dc.set_defaults(func=cmd_decision)
     do = dsub.add_parser("overturn")
     do.add_argument("id")
@@ -684,6 +720,7 @@ def build_parser():
     do.add_argument("--source-ticket")
     do.add_argument("--output-files", nargs="*")
     do.add_argument("--fragment", action="append")
+    do.add_argument("--rationale", help="新决定的依据")
     do.set_defaults(func=cmd_decision)
     dv = dsub.add_parser("void")
     dv.add_argument("id")

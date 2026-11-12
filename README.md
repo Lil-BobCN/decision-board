@@ -72,10 +72,11 @@
 
 ## 导入和同步
 
-- 导入读 GitHub 的 issue、评论、标签、状态、父子、阻塞，写一条 `import` 事件。一张地图只导入一次。
-- 从四列表重建决定：`source_ticket` 取评论所在票，`supersedes` 取「取代」列，`output_files` 取「产出文件」列。
+- 导入读 GitHub 的 issue、评论、标签、状态、父子、阻塞，写一条 `import` 事件。一张地图只导入一次。本地快照用 `dt import --payload <文件>` 导入。
+- 从四列表重建决定：`source_ticket` 取评论所在票，`supersedes` 取「取代」列，`output_files` 取「产出文件」列，`rationale` 取评论里的 `## 依据` 一节（约定写在关票评论）。
 - 根决定编号 `D-<地图号>-ROOT`。主句取 `**主句：**`，没有取第一句；拆句取旧覆盖表的原文片段。
-- 导入的票 `derived_from` 挂根决定，`split_reason` 留空，显示「未记录」。
+- 地图正文 `## 拆票理由` 进 `split_rationale`，票正文 `## 拆票理由` 进 `split_reason`。没有就是空，显示「未记录」。
+- 导入的票 `derived_from` 挂根决定。
 - 同步由运营者按地图触发。`--check` 只读，打印计划；不带 `--check` 才写 GitHub。
 - 同步写 issue、评论、标签、父子、阻塞，以及地图正文里的生成段。中台为准，GitHub 上的直接修改在下一次同步被覆盖。
 - 生成段到约 60KB 截断，末尾写「完整内容在中台」和本地地址。
