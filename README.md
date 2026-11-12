@@ -30,6 +30,7 @@
 | `dt issue confirm-derived <票号> [--decision <决定号>]` | 确认推断来源，移进 `derived_from` |
 | `dt comment add/edit/delete` | 评论 |
 | `dt decision create/overturn/void` | 决定 |
+| `dt decision annotate <决定号> --rationale <理由> [--source <来源>]` | 旧图补记依据，不改陈述和状态 |
 | `dt premise add/edit/judge` | 前提 |
 | `dt impact list/show/act/close` | 影响清单，`act` 也可写 `handle` |
 | `dt show <编号>` | 看地图、票、决定、前提或影响清单 |

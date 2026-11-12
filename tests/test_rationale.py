@@ -17,6 +17,7 @@ from dtlib.importer import (
     parse_split_rationale,
 )
 from dtlib.service import BoardService
+from dtlib.schema import validate_event
 from dtlib.store import EventStore
 from dtlib.util import DtError
 
@@ -109,6 +110,75 @@ class TestRationaleModel(Base):
         self.assertEqual(
             self.store.state["premises"][p["target"]]["last_judged_reason"],
             "来源：中台/dtlib/cli.py。")
+
+    def test_decision_annotate_writes_rationale_and_source(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"])
+        d = self.board.decision_create("agent:test", "决定", source_ticket=ticket)
+        self.append(d)
+        event = self.board.decision_annotate(
+            "agent:test", d["target"], "旧票回填的理由。", source="来源：C-0018。")
+        self.assertEqual(event["v"], 3)
+        self.append(event)
+        decision = self.store.state["decisions"][d["target"]]
+        self.assertEqual(decision["rationale"], "旧票回填的理由。")
+        self.assertEqual(decision["rationale_source"], "来源：C-0018。")
+        self.assertEqual(decision["statement"], "决定")
+        self.assertEqual(decision["status"], "active")
+
+    def test_decision_annotate_unknown_decision(self):
+        with self.assertRaises(DtError):
+            self.board.decision_annotate("agent:test", "D-9999", "理由")
+
+    def test_decision_annotate_rejects_empty_rationale(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"])
+        d = self.board.decision_create("agent:test", "决定", source_ticket=ticket)
+        self.append(d)
+        with self.assertRaises(DtError):
+            self.board.decision_annotate("agent:test", d["target"], "  ")
+
+    def test_decision_annotate_only_accepts_v3(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"])
+        d = self.board.decision_create("agent:test", "决定", source_ticket=ticket)
+        self.append(d)
+        event = self.board.decision_annotate("agent:test", d["target"], "理由。")
+        validate_event(event)
+        too_old = dict(event)
+        too_old["v"] = 2
+        with self.assertRaises(DtError):
+            validate_event(too_old)
+
+    def test_import_recomputes_impact_counter(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"], "产决定")
+        decision = self.board.decision_create("agent:test", "旧决定", source_ticket=ticket)
+        self.append(decision)
+        derived = self.board.issue_create(
+            "agent:test", "ticket", title="派生票", parent=map_id, type="task",
+            split_reason="派生", derived_from=[decision["target"]])
+        self.append(derived)
+        overturn = self.board.decision_overturn(
+            "agent:test", decision["target"], "新决定", source_ticket=ticket)
+        self.append(overturn)
+        self.assertEqual(overturn["payload"]["impact_case"], "IC-0001")
+        payload = {
+            "map": {
+                "id": "9", "kind": "map", "title": "导入图", "body": "",
+                "split_rationale": "", "state": "open", "labels": [],
+                "created_at": NOW, "updated_at": NOW, "closed_at": None,
+                "created_by": "human:test",
+                "root": {
+                    "id": "D-9-ROOT", "statement": "根句。",
+                    "fragments": [{"index": 1, "text": "根句。"}],
+                    "output_files": [], "created_at": NOW, "created_by": "human:test",
+                },
+            },
+            "tickets": [], "comments": [], "decisions": [], "premises": [], "coverage": [],
+        }
+        self.append(self.board.import_event("agent:test", payload, "payload:9"))
+        self.assertEqual(self.store.state["counters"]["impact"], 2)
 
     def test_confirm_derived_moves_inferred_edge(self):
         map_id, root = self.make_map()
@@ -325,6 +395,34 @@ class TestPayloadImport(unittest.TestCase):
         with self.assertRaises(DtError):
             service.import_payload(payload, "agent:test")
 
+    def test_import_keeps_superseded_status_without_replacement(self):
+        home = tempfile.mkdtemp(prefix="dt-payload-")
+        service = BoardService(home=home, repo="Example/repo", port=0)
+        service.store.ensure_dirs()
+        service.store.load()
+        payload = {
+            "map": {
+                "id": "1", "kind": "map", "title": "旧图", "body": "",
+                "split_rationale": "", "state": "open", "labels": [],
+                "created_at": NOW, "updated_at": NOW, "closed_at": None,
+                "created_by": "human:test",
+                "root": {
+                    "id": "D-M1-ROOT", "statement": "根句。",
+                    "fragments": [{"index": 1, "text": "根句。"}],
+                    "output_files": [], "created_at": NOW, "created_by": "human:test",
+                },
+            },
+            "tickets": [], "comments": [], "premises": [], "coverage": [],
+            "decisions": [{
+                "id": "D-M1-003", "statement": "旧结论", "source_ticket": None,
+                "output_files": [], "status": "superseded",
+            }],
+        }
+        service.import_payload(payload, "agent:test")
+        decision = service.store.state["decisions"]["D-M1-003"]
+        self.assertEqual(decision["status"], "superseded")
+        self.assertIsNone(decision["superseded_by"])
+
     def test_cli_accepts_payload_and_github_forms(self):
         parser = build_parser()
         args = parser.parse_args(["import", "--payload", "快照.json"])
@@ -333,6 +431,12 @@ class TestPayloadImport(unittest.TestCase):
         args = parser.parse_args(["import", "github", "139"])
         self.assertEqual(args.map, "139")
         self.assertEqual(args.source, "github")
+        args = parser.parse_args([
+            "decision", "annotate", "D-0001",
+            "--rationale", "理由。", "--source", "C-0018。",
+        ])
+        self.assertEqual(args.action, "annotate")
+        self.assertEqual(args.source, "C-0018。")
 
 
 if __name__ == "__main__":

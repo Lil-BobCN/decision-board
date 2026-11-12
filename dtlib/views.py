@@ -245,6 +245,7 @@ def board_view(store, map_id=None):
             "source_ticket": d.get("source_ticket"),
             "output_files": d.get("output_files", []),
             "rationale": d.get("rationale", ""),
+            "rationale_source": d.get("rationale_source", ""),
             "status": d["status"],
             "supersedes": d.get("supersedes", []),
             "superseded_by": d.get("superseded_by"),

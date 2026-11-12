@@ -15,6 +15,7 @@ OPS_V2 = OPS_V1 | {
     "decision.void", "premise.edit", "impact.act", "impact.close",
     "issue.confirm_derived",
 }
+OPS_V3 = OPS_V2 | {"decision.annotate"}
 
 TICKET_TYPES = ("grilling", "research", "prototype", "task")
 VERDICTS = ("成立", "已破", "未知")
@@ -89,6 +90,10 @@ _SCHEMAS = {
         "impact.close": (set(), set()),
     },
 }
+
+# v3 只加一个只写依据的 op；其余事件按 v2 折叠。
+_SCHEMAS[3] = dict(_SCHEMAS[2])
+_SCHEMAS[3]["decision.annotate"] = ({"rationale"}, {"source"})
 
 _TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
 _ACTOR_RE = re.compile(r"^(human|agent):.+$")
@@ -256,6 +261,11 @@ def _validate_payload_types(op, p, where, version=2):
                 _expect(isinstance(nd["rationale"], str), "new_decision.rationale 不是字符串", where)
     elif op == "decision.void":
         _expect(isinstance(p["reason"], str) and p["reason"], "reason 为空", where)
+    elif op == "decision.annotate":
+        _expect(isinstance(p["rationale"], str) and p["rationale"].strip(),
+                "rationale 为空", where)
+        if "source" in p:
+            _expect(isinstance(p["source"], str), "source 不是字符串", where)
     elif op == "premise.add":
         _expect(isinstance(p["decision"], str) and p["decision"], "decision 为空", where)
         _expect(isinstance(p["statement"], str) and p["statement"], "statement 为空", where)

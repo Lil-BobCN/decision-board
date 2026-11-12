@@ -36,7 +36,7 @@ class Board:
 
     def _event(self, op, target, payload, actor, reason=None):
         return {
-            "v": 2,
+            "v": 3 if op == "decision.annotate" else 2,
             "seq": self.store.last_seq + 1,
             "ts": now_ts(),
             "actor": actor,
@@ -231,6 +231,18 @@ class Board:
                 payload["impact_case"] = case_id
                 payload["impact_items"] = items
         return self._event("decision.void", did, payload, actor, reason or reason_text)
+
+    def decision_annotate(self, actor, did, rationale, source=None, reason=None):
+        """补记依据；不动陈述、状态和取代边。"""
+        d = self.state["decisions"].get(did)
+        if not d:
+            raise DtError(f"找不到决定 {did}")
+        if not rationale or not rationale.strip():
+            raise DtError("rationale 为空", 2)
+        payload = {"rationale": rationale}
+        if source is not None:
+            payload["source"] = source
+        return self._event("decision.annotate", did, payload, actor, reason)
 
     # ---------- 前提 ----------
 
@@ -538,6 +550,10 @@ def dispatch(board, op, args, actor, reason=None):
         )
     if op == "decision.void":
         return board.decision_void(actor, args["id"], args["void_reason"], reason=reason)
+    if op == "decision.annotate":
+        return board.decision_annotate(
+            actor, args["id"], args["rationale"],
+            source=args.get("source"), reason=reason)
     if op == "premise.add":
         return board.premise_add(
             actor, args["decision"], args["statement"], args.get("evidence") or [])
