@@ -173,6 +173,45 @@ class TestSync(unittest.TestCase):
             plan2 = compute_plan(self.store, "Example/repo", self.map_id)
         self.assertEqual(plan2["actions"], [], plan2)
 
+    def test_block_diff_uses_remote_numbers(self):
+        blocker = self._ticket()  # I-0001
+        blocked = self._ticket()  # I-0002
+        self.store.append_event(self.board.issue_block("agent:test", blocked, [blocker], []))
+        self.store.sync_record({"type": "mapping", "kind": "issue",
+                                "local": blocker, "github": 170})
+        self.store.sync_record({"type": "mapping", "kind": "issue",
+                                "local": blocked, "github": 201})
+        fake = self._fake(selected=True)
+        fake.add_issue(170, "新票", "票正文", labels=["wayfinder:task"])
+        fake.add_issue(201, "新票", "票正文", labels=["wayfinder:task"])
+        fake.subs[139] = [170, 201]
+        fake.blocked[201] = [170]
+
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            plan = compute_plan(self.store, "Example/repo", self.map_id)
+        blocks = [a for a in plan["actions"] if a["kind"] in ("block.add", "block.remove")]
+        self.assertEqual(blocks, [], plan["actions"])
+
+        # GitHub 少了阻塞：只加一条，号用 170，不再同时删一条
+        fake.blocked[201] = []
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            plan = compute_plan(self.store, "Example/repo", self.map_id)
+        adds = [a for a in plan["actions"] if a["kind"] == "block.add"]
+        self.assertEqual(len(adds), 1, plan["actions"])
+        self.assertEqual(adds[0]["blocker"], blocker)
+        self.assertEqual(adds[0]["blocker_number"], 170)
+        self.assertEqual([a for a in plan["actions"] if a["kind"] == "block.remove"], [])
+
+        # 中台少了阻塞：只删一条，号用 170
+        self.store.append_event(self.board.issue_block("agent:test", blocked, [], [blocker]))
+        fake.blocked[201] = [170]
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            plan = compute_plan(self.store, "Example/repo", self.map_id)
+        removes = [a for a in plan["actions"] if a["kind"] == "block.remove"]
+        self.assertEqual(len(removes), 1, plan["actions"])
+        self.assertEqual(removes[0]["blocker_number"], 170)
+        self.assertEqual([a for a in plan["actions"] if a["kind"] == "block.add"], [])
+
     def test_state_and_comment_edit_delete(self):
         ticket = self._ticket()
         fake = self._fake(selected=True)
