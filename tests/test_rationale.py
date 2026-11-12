@@ -245,6 +245,23 @@ class TestRationaleModel(Base):
         self.assertIn(d["target"], issue["derived_from"])
         self.assertEqual(issue["derived_from_inferred"], [])
 
+    def test_confirm_derived_can_be_reverted_by_edit(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root["id"], "先产决定")
+        d = self.board.decision_create("agent:test", "来源决定", source_ticket=ticket)
+        self.append(d)
+        inferred_ticket = self.make_ticket(
+            map_id, root["id"], "推断来源", inferred_from=[d["target"]])
+        self.append(self.board.issue_confirm_derived(
+            "agent:test", inferred_ticket, [d["target"]]))
+        self.append(self.board.issue_edit("agent:test", inferred_ticket, {
+            "derived_from": [root["id"]],
+            "derived_from_inferred": [d["target"]],
+        }))
+        issue = self.store.state["issues"][inferred_ticket]
+        self.assertEqual(issue["derived_from"], [root["id"]])
+        self.assertEqual(issue["derived_from_inferred"], [d["target"]])
+
     def test_import_payload_fields(self):
         payload = {
             "map": {

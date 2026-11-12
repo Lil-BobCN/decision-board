@@ -591,6 +591,7 @@
         }).join("") + "</select>" +
         '<label>拆票理由</label><textarea name="split_reason">' + U.esc(t ? t.split_reason : "") + "</textarea>" +
         '<label>derived_from（逗号隔开，写决定编号）</label><input name="derived_from" value="' + U.esc(t ? (t.derived_from || []).join("、") : "") + '">' +
+        '<label>推断来源（未确认，逗号隔开；确认后移到 derived_from）</label><input name="derived_from_inferred" value="' + U.esc(t ? (t.derived_from_inferred || []).join("、") : "") + '">' +
         '<label>covers（逗号隔开，写第几句）</label><input name="covers" value="' + U.esc(t ? idsToCovers(t.covers) : "") + '">' +
         '<label>正文</label><textarea name="body" style="min-height:110px">' + U.esc(t ? t.body : "") + "</textarea>";
     }
@@ -827,6 +828,7 @@
         type: formValue(fd, "type") || null,
         split_reason: formValue(fd, "split_reason"),
         derived_from: splitList(formValue(fd, "derived_from")),
+        derived_from_inferred: splitList(formValue(fd, "derived_from_inferred")),
         covers: coversToIds(formValue(fd, "covers")),
         body: formValue(fd, "body")
       });
