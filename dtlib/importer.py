@@ -103,6 +103,7 @@ def build_import_payload(repo, map_number, gh_bin="gh", start_comment=1):
             "blocked_by": blocked_by,
             "split_reason": "",
             "derived_from": [root_id],
+            "derived_from_inferred": [],
             "covers": [],
             "created_at": sub.get("created_at"),
             "updated_at": sub.get("updated_at"),

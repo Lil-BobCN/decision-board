@@ -1,0 +1,247 @@
+/* #144 主题层：浅色沿用原纸面，深色按 GitHub Primer dark 重做。
+   所有表面、文字、边框、语义色都从这里取，index.html 里不再写死颜色。 */
+
+:root{
+  color-scheme: light;
+
+  /* 画布与表面 */
+  --canvas:#f4f0e7;
+  --canvas-warm:#fbf8f1;
+  --surface:#fffdf8;
+  --surface-raised:#fffefb;
+  --surface-sunken:#f8f4eb;
+  --surface-tint:#efe9dc;
+  --surface-hover:#f3eee3;
+
+  /* 文字 */
+  --text:#1e1b16;
+  --text-body:#4a453c;
+  --text-muted:#7b7264;
+  --text-faint:#a79c8b;
+  --text-onaccent:#fffdf8;
+
+  /* 边框 */
+  --border:#dfd6c6;
+  --border-strong:#cbbfa9;
+  --border-faint:#ece4d6;
+
+  /* 强调色 */
+  --accent:#2f4a8a;
+  --accent-deep:#22386b;
+  --accent-soft:#eef1f9;
+  --accent-line:#c9d3ea;
+
+  /* 语义色 */
+  --green:#2f6b4d;      --green-soft:#edf5ef;   --green-line:#c9ddcf;
+  --amber:#96621a;      --amber-soft:#fbf3e1;   --amber-line:#e6d2a8;
+  --red:#a83a2c;        --red-soft:#fbeeea;     --red-line:#e8c9c1;
+  --red-ink:#7a2a20;    --red-ink-strong:#862a20;
+  --violet:#6b4a8a;     --violet-soft:#f3eef9;  --violet-line:#dccfe8;
+  --gray-dot:#b7ab97;   --gray-soft:#f1eee7;
+
+  /* 图 */
+  --graph-surface:#fffdf8;
+  --graph-grid:rgba(30,27,22,.02);
+  --graph-glow:rgba(47,74,138,.035);
+  --node-fill:var(--surface);
+  --node-stroke:var(--border-strong);
+  --node-bare-fill:#fbf9f3;
+  --node-bare-stroke:#c9bda8;
+  --node-void-fill:#f1eee7;
+  --node-void-stroke:#bcb09b;
+  --node-oldroot-stroke:#b3a58d;
+  --edge:#c6baa5;
+  --edge-strong:#9d8f78;
+  --edge-branch:#bdb09a;
+  --arrow:#b7ab97;
+  --old-band:rgba(241,238,231,.42);
+  --old-band-stroke:#c8bca6;
+  --shadow-node:0 5px 10px rgba(30,27,22,.13);
+  --graph-hint-bg:rgba(255,253,248,.88);
+  --graph-tools-bg:rgba(255,253,248,.92);
+  --drawer-bg:rgba(255,253,248,.97);
+  --side-bg:rgba(255,253,248,.72);
+  --sticky-bg:rgba(255,253,248,.97);
+
+  /* 效果 */
+  --shadow:0 1px 0 rgba(30,27,22,.02), 0 18px 40px -34px rgba(30,27,22,.45);
+  --shadow-drawer:-18px 0 40px rgba(30,27,22,.08);
+  --shadow-modal:0 30px 80px -20px rgba(20,18,14,.45);
+  --page-grid:rgba(30,27,22,.014);
+  --page-glow-a:rgba(47,74,138,.05);
+  --page-glow-b:rgba(150,98,26,.04);
+
+  /* 形状与节奏 */
+  --r-xs:4px;  --r-sm:6px;  --r-md:8px;  --r-lg:10px;  --r-xl:14px;
+  --topbar-h:44px;
+  --drawer-w:472px;
+  --dur:160ms;
+  --ease:cubic-bezier(.22,.61,.36,1);
+
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+  --serif:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC",serif;
+
+  /* 过渡壳：切主题时不闪白 */
+  --chrome:#161512;
+  --chrome-text:#f1ede3;
+  --chrome-muted:#8d8678;
+
+  /* 语义别名，供旧规则复用 */
+  --paper:var(--canvas);
+  --paper2:var(--canvas-warm);
+  --card:var(--surface);
+  --card2:var(--surface-sunken);
+  --ink:var(--text);
+  --ink2:var(--text-body);
+  --muted:var(--text-muted);
+  --faint:var(--text-faint);
+  --line:var(--border);
+  --line2:var(--border-strong);
+  --accent2:var(--accent-deep);
+}
+
+/* GitHub 深色：画布 #0d1117、表面 #161b22、边框 #30363d。
+   去掉纸纹、暖色阴影；平面、1px 边框、6px 圆角。 */
+[data-theme="dark"]{
+  color-scheme: dark;
+
+  --canvas:#0d1117;
+  --canvas-warm:#0d1117;
+  --surface:#161b22;
+  --surface-raised:#1c2129;
+  --surface-sunken:#10151c;
+  --surface-tint:#21262d;
+  --surface-hover:#21262d;
+
+  --text:#e6edf3;
+  --text-body:#c9d1d9;
+  --text-muted:#8b949e;
+  --text-faint:#6e7681;
+  --text-onaccent:#0d1117;
+
+  --border:#30363d;
+  --border-strong:#3d444d;
+  --border-faint:#21262d;
+
+  --accent:#58a6ff;
+  --accent-deep:#79c0ff;
+  --accent-soft:rgba(56,139,253,.15);
+  --accent-line:rgba(56,139,253,.4);
+
+  --green:#3fb950;      --green-soft:rgba(46,160,67,.15);   --green-line:rgba(46,160,67,.4);
+  --amber:#d29922;      --amber-soft:rgba(187,128,9,.15);   --amber-line:rgba(187,128,9,.4);
+  --red:#f85149;        --red-soft:rgba(248,81,73,.12);     --red-line:rgba(248,81,73,.4);
+  --red-ink:#ff7b72;    --red-ink-strong:#ffa198;
+  --violet:#bc8cff;     --violet-soft:rgba(188,140,255,.12); --violet-line:rgba(188,140,255,.4);
+  --gray-dot:#6e7681;   --gray-soft:#21262d;
+
+  --graph-surface:#0d1117;
+  --graph-grid:rgba(240,246,252,.03);
+  --graph-glow:rgba(56,139,253,.06);
+  --node-fill:var(--surface);
+  --node-stroke:#3d444d;
+  --node-bare-fill:#161b22;
+  --node-bare-stroke:#484f58;
+  --node-void-fill:#10151c;
+  --node-void-stroke:#30363d;
+  --node-oldroot-stroke:#484f58;
+  --edge:#484f58;
+  --edge-strong:#6e7681;
+  --edge-branch:#3d444d;
+  --arrow:#6e7681;
+  --old-band:rgba(110,118,129,.08);
+  --old-band-stroke:#30363d;
+  --shadow-node:0 0 0 1px rgba(88,166,255,.35);
+  --graph-hint-bg:rgba(22,27,34,.92);
+  --graph-tools-bg:rgba(22,27,34,.94);
+  --drawer-bg:#161b22;
+  --side-bg:#0d1117;
+  --sticky-bg:rgba(22,27,34,.97);
+
+  --shadow:none;
+  --shadow-drawer:-1px 0 0 var(--border), -12px 0 28px rgba(1,4,9,.5);
+  --shadow-modal:0 8px 24px rgba(1,4,9,.7);
+  --page-grid:transparent;
+  --page-glow-a:transparent;
+  --page-glow-b:transparent;
+
+  --r-xs:4px; --r-sm:6px; --r-md:6px; --r-lg:6px; --r-xl:6px;
+  --chrome:#010409;
+  --chrome-text:#e6edf3;
+  --chrome-muted:#8b949e;
+}
+
+/* 深色下统一平面：去掉渐变纸张与暖阴影 */
+[data-theme="dark"] body{
+  background:var(--canvas);
+  background-image:none;
+}
+[data-theme="dark"] .graph-a,
+[data-theme="dark"] .graph-wrap{
+  background:
+    radial-gradient(circle at 50% 0%,var(--graph-glow),transparent 60%),
+    linear-gradient(0deg,var(--graph-grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--graph-grid) 1px,transparent 1px),
+    var(--graph-surface);
+  background-size:auto,26px 26px,26px 26px,auto;
+  box-shadow:none;
+}
+[data-theme="dark"] .topbar{
+  background:rgba(13,17,23,.85);
+}
+/* 深色下红底 12% 透明度会让画布透上来，影响条与提醒条改用实底 */
+[data-theme="dark"] .impact-banner{
+  background:#2d1214;
+  border-bottom-color:rgba(248,81,73,.45);
+  color:#ffa198;
+}
+[data-theme="dark"] .impact-banner:hover{background:#3a1719}
+[data-theme="dark"] .reminder{
+  background:#2d1214;border-color:rgba(248,81,73,.45);color:#ffa198;box-shadow:none;
+}
+[data-theme="dark"] .impact-hero{
+  background:#0d1117;border-bottom-color:rgba(248,81,73,.45);
+}
+[data-theme="dark"] .impact-hero .progress-line{background:#21262d}
+[data-theme="dark"] .trigger-card,
+[data-theme="dark"] .impact-line.hot{
+  background:#2d1214;
+}
+[data-theme="dark"] .why-box{
+  background:#2d1214;color:#ffa198;
+}
+[data-theme="dark"] .p-break-card.red{background:#2d1214}
+[data-theme="dark"] .cov-row.gap td{background:#2d1214}
+[data-theme="dark"] .cov-row.gap .cov-text{color:#ffa198}
+[data-theme="dark"] .cov-bar .bar{background:#21262d}
+[data-theme="dark"] .a-drawer,
+[data-theme="dark"] .drawer{
+  box-shadow:var(--shadow-drawer);
+}
+[data-theme="dark"] .premise.red,
+[data-theme="dark"] .premise.amber,
+[data-theme="dark"] .premise.green,
+[data-theme="dark"] .premise-row.red,
+[data-theme="dark"] .premise-row.amber,
+[data-theme="dark"] .premise-row.green,
+[data-theme="dark"] .p-break-card.red,
+[data-theme="dark"] .p-break-card.green,
+[data-theme="dark"] .p-break-card.amber{
+  background:var(--surface);
+}
+/* 品牌方块在深色里反色：底用亮描边，字用画布色 */
+[data-theme="dark"] .logo{
+  background:var(--text);
+  color:var(--canvas);
+}
+/* 原型控制条在深色下压到画外也没关系，但要能看清 */
+[data-theme="dark"] .switcher{
+  background:#010409;
+  box-shadow:0 14px 34px -12px rgba(1,4,9,.9), inset 0 0 0 1px var(--border);
+}
+[data-theme="dark"] .seg button.active,
+[data-theme="dark"] .tabs button.active{
+  box-shadow:none;
+  background:var(--surface-tint);
+}

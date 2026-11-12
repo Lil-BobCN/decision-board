@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>决策中台</title>
+<meta name="description" content="本机决策看板：决策图、影响清单、覆盖表、工作状态和同步状态。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%231e1b16'/%3E%3Ctext x='8' y='11.5' font-size='9' text-anchor='middle' fill='%23f4f0e7' font-family='serif'%3E中%3C/text%3E%3C/svg%3E">
+<script>
+(function(){
+  var pref = null;
+  try { pref = new URLSearchParams(location.search).get("theme"); } catch (e) {}
+  if (!pref) { try { pref = localStorage.getItem("dt-theme"); } catch (e) {} }
+  if (pref !== "light" && pref !== "dark" && pref !== "auto") pref = "auto";
+  var dark = pref === "dark" || (pref === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme-pref", pref);
+})();
+</script>
+<link rel="stylesheet" href="/theme.css">
+<link rel="stylesheet" href="/screen.css">
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" aria-live="polite"></div>
+<script src="/util.js"></script>
+<script src="/graph.js"></script>
+<script src="/panels.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

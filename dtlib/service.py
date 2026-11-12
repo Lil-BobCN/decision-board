@@ -19,12 +19,34 @@ from .util import (
     DtError, EXIT_BUSINESS, EXIT_SERVICE, check_actor, current_actor, now_ts,
 )
 from .views import (
-    coverage_view, decision_view, impact_list, impact_view, issue_view,
+    board_view, coverage_view, decision_view, impact_list, impact_view, issue_view,
     premise_view, sync_view, workstate_view,
 )
 from .workstate import WorkStatePoller
 
 DEFAULT_PORT = 8788
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
+STATIC_TYPES = {
+    "index.html": "text/html; charset=utf-8",
+    "theme.css": "text/css; charset=utf-8",
+    "screen.css": "text/css; charset=utf-8",
+    "util.js": "text/javascript; charset=utf-8",
+    "graph.js": "text/javascript; charset=utf-8",
+    "panels.js": "text/javascript; charset=utf-8",
+    "app.js": "text/javascript; charset=utf-8",
+}
+
+
+def static_file(name):
+    """读屏幕文件。只认白名单里的文件名，不拼接路径。"""
+    if name not in STATIC_TYPES:
+        raise DtError("没有这个文件", 2)
+    path = os.path.join(WEB_DIR, name)
+    try:
+        with open(path, "rb") as f:
+            return f.read(), STATIC_TYPES[name]
+    except FileNotFoundError:
+        raise DtError(f"屏幕文件缺失：{name}")
 
 
 class BoardService:
@@ -280,12 +302,21 @@ class Handler(BaseHTTPRequestHandler):
                 self._ok(impact_view(self.service.store, path.split("/", 2)[2]))
             elif path.startswith("/coverage/"):
                 self._ok(coverage_view(self.service.store, path.split("/", 2)[2]))
+            elif path == "/board" or path.startswith("/board/"):
+                map_id = path.split("/", 2)[2] if path.startswith("/board/") else None
+                self._ok(board_view(self.service.store, map_id))
             elif path == "/workstate":
                 self._ok(workstate_view(self.service.store))
             elif path.startswith("/sync/"):
                 self._ok(sync_view(self.service.store, path.split("/", 2)[2]))
-            elif path == "/":
-                self._html()
+            elif path in ("/", "/index.html"):
+                self._static("index.html")
+            elif path.lstrip("/") in STATIC_TYPES:
+                self._static(path.lstrip("/"))
+            elif path == "/favicon.ico":
+                self.send_response(204)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
             else:
                 self._send({"ok": False, "error": "没有这个接口", "code": 2}, 404)
         except (DtError, KeyError) as exc:
@@ -294,27 +325,20 @@ class Handler(BaseHTTPRequestHandler):
             self.service.store._log(f"GET {path} 失败：{exc}")
             self._send({"ok": False, "error": f"服务内部错误：{exc}", "code": EXIT_BUSINESS})
 
-    def _html(self):
-        body = """<!doctype html><meta charset="utf-8">
-<title>决策中台</title>
-<body style="font-family:system-ui;max-width:42rem;margin:4rem auto;line-height:1.7">
-<h1>决策中台</h1>
-<p>内核已在本机运行。屏幕在《实现屏幕：完整内容、编辑与同步状态》里实现。</p>
-<ul>
-<li><a href="/state">/state</a> 当前状态</li>
-<li><a href="/impact">/impact</a> 影响清单</li>
-<li><a href="/workstate">/workstate</a> 工作状态</li>
-<li><a href="/events">/events</a> 事件流（SSE）</li>
-</ul>
-</body>""".encode("utf-8")
+    def _static(self, name):
+        body, content_type = static_file(name)
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def _sse(self, query):
         since = int((query.get("since") or ["0"])[0])
+        last_id = self.headers.get("Last-Event-ID")
+        if last_id and str(last_id).isdigit():
+            since = max(since, int(last_id))
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-cache")

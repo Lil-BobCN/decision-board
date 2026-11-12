@@ -48,6 +48,8 @@ def apply_event(state, event):
         _fold_issue_create(state, event)
     elif op == "issue.edit":
         _fold_issue_edit(state, event)
+    elif op == "issue.confirm_derived":
+        _fold_issue_confirm_derived(state, event)
     elif op == "issue.state":
         _fold_issue_state(state, event)
     elif op == "issue.label":
@@ -160,6 +162,7 @@ def _fold_import(state, event):
             "blocked_by": [str(b) for b in item.get("blocked_by", [])],
             "split_reason": item.get("split_reason", ""),
             "derived_from": [str(d) for d in item.get("derived_from", ([root_id] if root_id else []))],
+            "derived_from_inferred": [str(d) for d in item.get("derived_from_inferred", [])],
             "covers": list(item.get("covers", [])),
             "created_at": item.get("created_at") or ts,
             "updated_at": item.get("updated_at") or item.get("created_at") or ts,
@@ -312,8 +315,9 @@ def _fold_issue_create(state, event):
         if state["issues"][parent]["kind"] != "map":
             raise DtError(f"票 {iid} 的父 issue 不是地图：{parent}")
         derived_from = list(p.get("derived_from", []))
+        derived_from_inferred = list(p.get("derived_from_inferred", []))
         covers = list(p.get("covers", []))
-        _check_decisions(state, derived_from)
+        _check_decisions(state, derived_from + derived_from_inferred)
         _check_covers(state, parent, covers)
     else:
         if parent is not None:
@@ -336,6 +340,7 @@ def _fold_issue_create(state, event):
         "blocked_by": [],
         "split_reason": p.get("split_reason", "") if kind == "ticket" else "",
         "derived_from": list(p.get("derived_from", [])) if kind == "ticket" else [],
+        "derived_from_inferred": list(p.get("derived_from_inferred", [])) if kind == "ticket" else [],
         "covers": list(p.get("covers", [])) if kind == "ticket" else [],
         "created_at": event["ts"],
         "updated_at": event["ts"],
@@ -379,10 +384,34 @@ def _fold_issue_edit(state, event):
         _require_ticket(issue)
         _check_decisions(state, p["derived_from"])
         issue["derived_from"] = list(p["derived_from"])
+    if "derived_from_inferred" in p:
+        _require_ticket(issue)
+        _check_decisions(state, p["derived_from_inferred"])
+        issue["derived_from_inferred"] = list(p["derived_from_inferred"])
+    if "derived_from" in p or "derived_from_inferred" in p:
+        confirmed = set(issue.get("derived_from", []))
+        issue["derived_from_inferred"] = [
+            d for d in issue.get("derived_from_inferred", []) if d not in confirmed]
     if "covers" in p:
         _require_ticket(issue)
         _check_covers(state, issue["parent"], p["covers"])
         issue["covers"] = list(p["covers"])
+    issue["updated_at"] = event["ts"]
+
+
+def _fold_issue_confirm_derived(state, event):
+    issue = _issue(state, event["target"])
+    _require_ticket(issue)
+    inferred = list(issue.get("derived_from_inferred", []))
+    picked = list(event["payload"].get("decisions") or inferred)
+    unknown = [d for d in picked if d not in inferred]
+    if unknown:
+        raise DtError(f"这些决定不是票 {issue['id']} 的推断来源：{'、'.join(unknown)}")
+    _check_decisions(state, picked)
+    for did in picked:
+        if did not in issue["derived_from"]:
+            issue["derived_from"].append(did)
+    issue["derived_from_inferred"] = [d for d in inferred if d not in picked]
     issue["updated_at"] = event["ts"]
 
 
@@ -482,8 +511,6 @@ def _check_decisions(state, ids):
     for did in ids:
         if did not in state["decisions"]:
             raise DtError(f"derived_from 指向不存在的决定：{did}")
-        if state["decisions"][did]["status"] != "active":
-            raise DtError(f"derived_from 指向不是 active 的决定：{did}")
 
 
 def _check_covers(state, map_id, covers):

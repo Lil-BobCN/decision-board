@@ -11,7 +11,10 @@ OPS_V1 = {
     "comment.delete", "decision.create", "decision.overturn",
     "premise.add", "premise.judge",
 }
-OPS_V2 = OPS_V1 | {"decision.void", "premise.edit", "impact.act", "impact.close"}
+OPS_V2 = OPS_V1 | {
+    "decision.void", "premise.edit", "impact.act", "impact.close",
+    "issue.confirm_derived",
+}
 
 TICKET_TYPES = ("grilling", "research", "prototype", "task")
 VERDICTS = ("成立", "已破", "未知")
@@ -45,14 +48,15 @@ _SCHEMAS = {
         ),
         "issue.create": (
             {"kind", "title", "body", "labels", "parent", "state"},
-            {"type", "split_reason", "derived_from", "covers", "destination",
+            {"type", "split_reason", "derived_from", "derived_from_inferred", "covers", "destination",
              "impact_case", "impact_item", "impact_action"},
         ),
         "issue.edit": (
             set(),
-            {"title", "body", "type", "split_reason", "derived_from", "covers",
+            {"title", "body", "type", "split_reason", "derived_from", "derived_from_inferred", "covers",
              "impact_case", "impact_item", "impact_action"},
         ),
+        "issue.confirm_derived": (set(), {"decisions"}),
         "issue.state": (
             {"state"},
             {"impact_case", "impact_item", "impact_action", "impact_merged_into"},
@@ -173,6 +177,9 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(p["type"] in TICKET_TYPES, "type 不在四种票型里", where)
             _expect(isinstance(p["split_reason"], str), "split_reason 不是字符串", where)
             _expect(_str_list(p["derived_from"]), "derived_from 不是字符串数组", where)
+            if "derived_from_inferred" in p:
+                _expect(_str_list(p["derived_from_inferred"]),
+                        "derived_from_inferred 不是字符串数组", where)
             _expect(_str_list(p["covers"]), "covers 不是字符串数组", where)
             _expect(p["parent"] is not None, "票必须挂地图", where)
             _expect("destination" not in p, "票不能带 destination", where)
@@ -187,7 +194,8 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(_str_list(d["fragments"]) and d["fragments"], "destination.fragments 为空", where)
             _expect(p["parent"] is None, "地图不能有父票", where)
     elif op == "issue.edit":
-        for key in ("title", "body", "type", "split_reason", "derived_from", "covers"):
+        for key in ("title", "body", "type", "split_reason", "derived_from",
+                    "derived_from_inferred", "covers"):
             if key in p:
                 if key in ("title",):
                     _expect(isinstance(p[key], str) and p[key], f"{key} 为空", where)
@@ -197,6 +205,9 @@ def _validate_payload_types(op, p, where, version=2):
                     _expect(p[key] in TICKET_TYPES, "type 不在四种票型里", where)
                 else:
                     _expect(_str_list(p[key]), f"{key} 不是字符串数组", where)
+    elif op == "issue.confirm_derived":
+        if "decisions" in p:
+            _expect(_str_list(p["decisions"]), "decisions 不是字符串数组", where)
     elif op in ("issue.state",):
         _expect(p["state"] in ("open", "closed"), "state 只能是 open 或 closed", where)
     elif op in ("issue.label", "issue.block"):

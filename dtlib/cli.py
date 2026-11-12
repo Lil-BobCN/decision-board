@@ -124,6 +124,9 @@ def _print_issue(view):
     if issue["kind"] == "ticket":
         print(f"父地图：{issue['parent']}  拆票理由：{issue['split_reason'] or '未记录'}")
         print(f"derived_from：{'、'.join(issue['derived_from']) or '无'}")
+        inferred = issue.get("derived_from_inferred") or []
+        if inferred:
+            print(f"推断来源（未确认）：{'、'.join(inferred)}")
         print(f"covers：{'、'.join(issue['covers']) or '无'}")
         if view.get("stale_covers"):
             print(f"吃旧决定：{'、'.join(view['stale_covers'])}")
@@ -377,6 +380,14 @@ def cmd_issue_block(args):
     return 0
 
 
+def cmd_issue_confirm_derived(args):
+    payload = {"id": args.id}
+    if args.decision:
+        payload["decisions"] = args.decision
+    _post(args, "issue.confirm_derived", payload)
+    return 0
+
+
 def cmd_issue_parent(args):
     raise DtError("v1 不开放改父票；建错地图就关掉重建", EXIT_BUSINESS)
 
@@ -626,6 +637,10 @@ def build_parser():
     b.add_argument("--add", action="append")
     b.add_argument("--remove", action="append")
     b.set_defaults(func=cmd_issue_block)
+    cd = isub.add_parser("confirm-derived")
+    cd.add_argument("id")
+    cd.add_argument("--decision", action="append")
+    cd.set_defaults(func=cmd_issue_confirm_derived)
     pp = isub.add_parser("parent")
     pp.add_argument("id")
     pp.add_argument("--set")

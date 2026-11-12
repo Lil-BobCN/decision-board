@@ -50,7 +50,8 @@ class Board:
 
     def issue_create(self, actor, kind, title, body="", labels=None, parent=None,
                      state="open", type=None, split_reason="", derived_from=None,
-                     covers=None, destination=None, reason=None, impact=None):
+                     derived_from_inferred=None, covers=None, destination=None,
+                     reason=None, impact=None):
         iid = self.next_issue_id()
         labels = list(labels or [])
         payload = {
@@ -66,6 +67,7 @@ class Board:
                 "type": type,
                 "split_reason": split_reason,
                 "derived_from": list(derived_from or []),
+                "derived_from_inferred": list(derived_from_inferred or []),
                 "covers": list(covers or []),
             })
             if not payload["derived_from"]:
@@ -90,7 +92,8 @@ class Board:
 
     def issue_edit(self, actor, iid, fields, reason=None, impact=None):
         payload = {}
-        for key in ("title", "body", "type", "split_reason", "derived_from", "covers"):
+        for key in ("title", "body", "type", "split_reason", "derived_from",
+                    "derived_from_inferred", "covers"):
             if fields.get(key) is not None:
                 payload[key] = fields[key]
         if not payload:
@@ -98,6 +101,19 @@ class Board:
         if impact:
             payload.update(impact)
         return self._event("issue.edit", iid, payload, actor, reason)
+
+    def issue_confirm_derived(self, actor, iid, decisions=None):
+        ticket = self.state["issues"].get(iid)
+        if not ticket or ticket.get("kind") != "ticket":
+            raise DtError(f"找不到票 {iid}")
+        inferred = list(ticket.get("derived_from_inferred", []))
+        if not inferred:
+            raise DtError(f"票 {iid} 没有待确认的推断来源")
+        picked = list(decisions or inferred)
+        unknown = [d for d in picked if d not in inferred]
+        if unknown:
+            raise DtError(f"这些决定不是票 {iid} 的推断来源：{'、'.join(unknown)}", 2)
+        return self._event("issue.confirm_derived", iid, {"decisions": picked}, actor)
 
     def issue_state(self, actor, iid, state, reason=None, impact=None, merged_into=None):
         payload = {"state": state}
@@ -158,6 +174,8 @@ class Board:
             raise DtError(f"找不到决定 {old_id}")
         if old["status"] != "active":
             raise DtError(f"决定 {old_id} 不是 active，不能取代")
+        if source_ticket is None:
+            source_ticket = old.get("source_ticket")
         if old.get("root_of"):
             if not fragments:
                 raise DtError("取代根决定必须给新拆句", 2)
@@ -459,6 +477,7 @@ def dispatch(board, op, args, actor, reason=None):
             type=args.get("type"),
             split_reason=args.get("split_reason", ""),
             derived_from=args.get("derived_from"),
+            derived_from_inferred=args.get("derived_from_inferred"),
             covers=args.get("covers"),
             destination=args.get("destination"),
             reason=reason,
@@ -466,9 +485,13 @@ def dispatch(board, op, args, actor, reason=None):
     if op == "issue.edit":
         return board.issue_edit(
             actor, args["id"],
-            {k: args.get(k) for k in ("title", "body", "type", "split_reason", "derived_from", "covers")},
+            {k: args.get(k) for k in ("title", "body", "type", "split_reason",
+                                      "derived_from", "derived_from_inferred", "covers")},
             reason=reason,
         )
+    if op == "issue.confirm_derived":
+        return board.issue_confirm_derived(
+            actor, args["id"], decisions=args.get("decisions"))
     if op == "issue.state":
         return board.issue_state(
             actor, args["id"], args["state"], reason=reason,
