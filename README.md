@@ -94,7 +94,7 @@
 - 同步写 issue、评论、标签、父子、阻塞，以及地图正文里的生成段。中台为准，GitHub 上的直接修改在下一次同步被覆盖。
 - 生成段到约 60KB 截断，末尾写「完整内容在中台」和本地地址。
 
-`import github` 和 `sync` 需要 `gh`，并且要在目标项目仓库的目录里运行，或者设置 `GRILLING_REPO=<owner/repo>`。不设的话，服务会按当前目录识别仓库，去 `decision-board` 仓库找 issue。
+`import github` 和 `sync` 需要 `gh`。服务启动时按 `GRILLING_REPO=<owner/repo>` 或当前目录识别目标仓库，启动后不再改。要在别的项目里用，先设 `GRILLING_REPO` 再启动服务；服务已经在跑时，换目录不会换仓库。要换仓库，先停掉服务（pid 在 `~/.grilling/中台/service.json`），设好 `GRILLING_REPO` 再启动；或者每个项目用独立的 `GRILLING_HOME` 和端口。
 
 ## 工作状态
 
@@ -112,7 +112,7 @@ python3 -m unittest discover -s tests -v
 
 ## 已知边界
 
-- 只同步导入的图。中台新建的地图还没有 GitHub 号，`./dt sync` 会拒绝。
+- 新建的地图镜像开关默认关。`./dt mirror <地图号> on` 后，第一次 `./dt sync` 会先建地图 issue，再写票、父子边和阻塞。导入的图默认开。
 - 导入的老票缺拆票理由和票与票、决定与决定的派生；这些边要靠后续编辑补。
 - 屏幕不做对话、会话链接和登录。
 - assignees、milestones、projects、reactions、通知不搬。
