@@ -17,25 +17,43 @@ def compute_plan(store, repo, map_id, gh_bin="gh"):
     map_issue = state["issues"].get(map_id)
     if not map_issue or map_issue["kind"] != "map":
         raise DtError(f"找不到地图 {map_id}")
-    if not str(map_id).isdigit():
-        raise DtError(f"地图 {map_id} 还没有 GitHub 号；v1 只同步导入的图")
+    map_number = _map_number(store, map_id)
     gh = GitHub(repo, gh_bin)
     local_tickets = [i for i in state["issues"].values() if i["parent"] == map_id]
     local_tickets.sort(key=lambda i: _num_key(i["id"]))
-    remote = _fetch_remote(store, repo, map_id, local_tickets, gh)
-    remote_map = remote["map"]
-    remote_by_number = remote["issues"]
-    remote_subs = remote["sub_issues"]
-    remote_subs_numbers = remote["sub_numbers"]
 
     actions = []
     warnings = []
     seen_remote = set()
 
-    # 地图本身
-    map_actions = _diff_issue(store, repo, map_issue, remote_map, is_map=True)
-    actions.extend(map_actions)
-    seen_remote.add(int(remote_map["number"]))
+    if map_number is None:
+        # 本地新建的地图还没有 GitHub 号：先建地图，远端按空地图比对
+        actions.append({
+            "kind": "map.create", "phase": 0, "ref": map_id,
+            "title": map_issue["title"], "body": map_issue["body"],
+            "labels": sorted(set(map_issue["labels"] + ["wayfinder:map"])),
+            "detail": f"新建地图 {map_id} {map_issue['title']}",
+        })
+        if map_issue["state"] == "closed":
+            actions.append({
+                "kind": "issue.state", "phase": 2, "ref": map_id,
+                "state": "closed",
+                "detail": f"新建后关掉地图 {map_id}",
+            })
+        remote_map = None
+        remote_by_number = {}
+        remote_subs = []
+        remote_subs_numbers = set()
+    else:
+        remote = _fetch_remote(store, repo, map_number, local_tickets, gh)
+        remote_map = remote["map"]
+        remote_by_number = remote["issues"]
+        remote_subs = remote["sub_issues"]
+        remote_subs_numbers = remote["sub_numbers"]
+        # 地图本身
+        map_actions = _diff_issue(store, repo, map_issue, remote_map, is_map=True)
+        actions.extend(map_actions)
+        seen_remote.add(int(remote_map["number"]))
 
     for issue in local_tickets:
         remote_number = _remote_number(store, issue["id"], remote_by_number)
@@ -87,19 +105,26 @@ def compute_plan(store, repo, map_id, gh_bin="gh"):
         for blocker in issue["blocked_by"]:
             blocker_number = _remote_number(store, blocker, remote_by_number)
             if blocker_number is None:
+                blocker_issue = state["issues"].get(blocker)
+                if blocker_issue and blocker_issue.get("parent") == map_id:
+                    # 同一张图里还没建出来的票：执行时用新建出来的号
+                    local_by_number.setdefault(blocker, blocker)
+                    continue
                 warnings.append(f"#{issue['id']} 的阻塞项 {blocker} 无法镜像：它不在本图且没有 GitHub 号")
                 continue
             local_by_number.setdefault(blocker_number, blocker)
         local_blocker_numbers = set(local_by_number)
-        for blocker_number in sorted(local_blocker_numbers - remote_blockers):
+        for blocker_number in sorted(local_blocker_numbers - remote_blockers, key=_num_key):
             blocker = local_by_number[blocker_number]
-            actions.append({
+            action = {
                 "kind": "block.add", "phase": 3,
                 "ref": issue["id"], "blocker": blocker,
-                "blocker_number": blocker_number,
                 "detail": f"加阻塞：#{issue['id']} 被 {blocker} 挡",
-            })
-        for blocker_number in sorted(remote_blockers - local_blocker_numbers):
+            }
+            if isinstance(blocker_number, int):
+                action["blocker_number"] = blocker_number
+            actions.append(action)
+        for blocker_number in sorted(remote_blockers - local_blocker_numbers, key=_num_key):
             actions.append({
                 "kind": "block.remove", "phase": 3,
                 "ref": issue["id"], "blocker": str(blocker_number),
@@ -111,13 +136,14 @@ def compute_plan(store, repo, map_id, gh_bin="gh"):
         actions.extend(_diff_comments(store, issue, remote_number, remote_comments, warnings))
 
     # 地图自己的评论
-    map_comments = remote_map.get("comments") or []
-    actions.extend(_diff_comments(store, map_issue, int(remote_map["number"]), map_comments, warnings))
+    map_comments = (remote_map or {}).get("comments") or []
+    map_comment_number = int(remote_map["number"]) if remote_map else None
+    actions.extend(_diff_comments(store, map_issue, map_comment_number, map_comments, warnings))
 
     # 地图正文生成段
     section = build_generated_section(store, map_id)
     desired_body = with_generated(map_issue["body"], section)
-    if (remote_map.get("body") or "") != desired_body:
+    if ((remote_map or {}).get("body") or "") != desired_body:
         actions.append({
             "kind": "map.body", "phase": 5, "ref": map_id,
             "detail": "改写地图正文的生成段",
@@ -252,6 +278,13 @@ def _rest_issue(gh, repo, item):
         "comments": [{"id": c.get("id"), "body": c.get("body") or ""} for c in comments],
         "blocked_by": blockers,
     }
+
+
+def _map_number(store, map_id):
+    if str(map_id).isdigit():
+        return int(map_id)
+    mapped = store.sync.get("issues", {}).get(str(map_id))
+    return int(mapped) if mapped is not None else None
 
 
 def _remote_number(store, local_id, remote_by_number):
@@ -531,7 +564,7 @@ def execute_plan(store, repo, map_id, plan, gh_bin="gh"):
                 else:
                     store.sync_record({"type": "mapping", "kind": "comment", "local": ref,
                                        "github": action["remote_id"]})
-            elif kind == "issue.create":
+            elif kind in ("issue.create", "map.create"):
                 data = gh.api(f"repos/{repo}/issues", method="POST", input_json={
                     "title": action["title"], "body": action["body"],
                     "labels": action.get("labels", []),
@@ -582,7 +615,8 @@ def execute_plan(store, repo, map_id, plan, gh_bin="gh"):
                     if "404" not in str(exc) and "Not Found" not in str(exc):
                         raise
             elif kind == "map.body":
-                gh.api(f"repos/{repo}/issues/{map_id}", method="PATCH",
+                number = _number_for(store, map_id, new_numbers)
+                gh.api(f"repos/{repo}/issues/{number}", method="PATCH",
                        input_json={"body": action["body"]})
             else:
                 raise DtError(f"不认识的同步动作 {kind}")

@@ -125,10 +125,20 @@ class TestSync(unittest.TestCase):
         self.store.append_event(event)
         return "139"
 
-    def _ticket(self):
+    def _make_local_map(self):
         event = self.board.issue_create(
-            "agent:test", "ticket", title="新票", body="票正文", parent=self.map_id,
-            type="task", split_reason="测试拆出", derived_from=[f"D-{self.map_id}-ROOT"],
+            "agent:test", "map", title="本地地图", body="## Notes\n\n本地图。",
+            split_rationale="测试本地图",
+            destination={"statement": "第一句。第二句。"},
+        )
+        self.store.append_event(event)
+        return event["target"]
+
+    def _ticket(self, parent=None):
+        parent = parent or self.map_id
+        event = self.board.issue_create(
+            "agent:test", "ticket", title="新票", body="票正文", parent=parent,
+            type="task", split_reason="测试拆出", derived_from=[f"D-{parent}-ROOT"],
         )
         self.store.append_event(event)
         return event["target"]
@@ -171,6 +181,50 @@ class TestSync(unittest.TestCase):
         self.assertEqual(self.store.sync["issues"][ticket], 200)
         with patch("dtlib.sync.GitHub", return_value=fake):
             plan2 = compute_plan(self.store, "Example/repo", self.map_id)
+        self.assertEqual(plan2["actions"], [], plan2)
+
+    def test_local_map_first_sync_creates_map_and_tickets(self):
+        local_map = self._make_local_map()
+        self.store.sync_record({"type": "mirror", "map": local_map, "on": True})
+        first = self._ticket(parent=local_map)
+        second = self._ticket(parent=local_map)
+        self.store.append_event(self.board.issue_block("agent:test", second, [first], []))
+        map_comment = self.board.comment_add("agent:test", local_map, "地图评论")
+        self.store.append_event(map_comment)
+
+        fake = FakeGitHub("Example/repo")
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            plan = compute_plan(self.store, "Example/repo", local_map)
+        kinds = [a["kind"] for a in plan["actions"]]
+        self.assertEqual(kinds.count("map.create"), 1, plan["actions"])
+        self.assertEqual(kinds.count("issue.create"), 2, plan["actions"])
+        self.assertEqual(kinds.count("parent.add"), 2, plan["actions"])
+        self.assertEqual(kinds.count("block.add"), 1, plan["actions"])
+        self.assertEqual(kinds.count("comment.create"), 1, plan["actions"])
+        self.assertIn("map.body", kinds)
+        self.assertEqual(plan["warnings"], [])
+
+        def fake_edit(repo, number, *flags, gh_bin="gh"):
+            if "--add-sub-issue" in flags:
+                child = int(flags[flags.index("--add-sub-issue") + 1])
+                fake.subs.setdefault(int(number), []).append(child)
+            if "--add-blocked-by" in flags:
+                blocker = int(flags[flags.index("--add-blocked-by") + 1])
+                fake.blocked.setdefault(int(number), []).append(blocker)
+
+        with patch("dtlib.sync.GitHub", return_value=fake), \
+                patch("dtlib.sync._gh_edit", side_effect=fake_edit):
+            result = execute_plan(self.store, "Example/repo", local_map, plan)
+        self.assertTrue(result["ok"], result)
+        map_number = self.store.sync["issues"][local_map]
+        self.assertEqual(fake.issues[map_number]["labels"], [{"name": "wayfinder:map"}])
+        self.assertEqual(fake.subs[map_number],
+                         [self.store.sync["issues"][first], self.store.sync["issues"][second]])
+        self.assertEqual(fake.blocked[self.store.sync["issues"][second]],
+                         [self.store.sync["issues"][first]])
+
+        with patch("dtlib.sync.GitHub", return_value=fake):
+            plan2 = compute_plan(self.store, "Example/repo", local_map)
         self.assertEqual(plan2["actions"], [], plan2)
 
     def test_comment_map_uses_remote_id(self):
