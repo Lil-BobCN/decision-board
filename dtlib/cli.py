@@ -159,6 +159,11 @@ def _print_issue(view):
                 if last.get("detail"):
                     line += f"（{last['detail']}）"
             print(line)
+            if record["status"] == "等合并":
+                for index, body in enumerate(record.get("comments") or [], start=1):
+                    print(f"  关票评论 {index}：")
+                    for text in str(body).splitlines():
+                        print("    " + text)
     else:
         print(f"拆票理由：{issue.get('split_rationale') or '未记录'}")
         root = view.get("root")

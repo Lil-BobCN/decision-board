@@ -339,6 +339,13 @@
         rows += '<dt>说明</dt><dd>' + U.esc(close.revoke_reason) + "</dd>";
       }
       closeBody = '<dl class="sb-kv">' + rows + "</dl>";
+      if ((close.comments || []).length) {
+        closeBody += '<div class="sb-quiet" style="margin-top:9px">关票评论草稿（合并后写入）</div>' +
+          close.comments.map(function (body, i) {
+            return '<details class="p-line"><summary><span class="pl-id">评论 ' + (i + 1) + "</span></summary>" +
+              '<div class="pl-body"><div class="sb-md">' + U.mdLite(body) + "</div></div></details>";
+          }).join("");
+      }
       if ((close.decisions || []).length) {
         closeBody += '<div class="sb-quiet" style="margin-top:9px">决定草稿（合并后写入）</div>' +
           close.decisions.map(function (d) {

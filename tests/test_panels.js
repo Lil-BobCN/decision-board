@@ -122,6 +122,7 @@ const closing = board({
         id: "CL-0001", ticket: "T1", pr: 187, sha: "a".repeat(40),
         status: "等合并", verify: null, last_check: null,
         written_by: "agent:claude", written_at: "2026-01-01T00:00:00Z",
+        comments: ["四列表 D-3", "改动文件清单", "依据", "五类检查"],
         decisions: [{ id: "D-3", statement: "自动关票：合并后展开记录" }],
       },
     }),
@@ -134,6 +135,8 @@ assert.ok(closingPanel.indexOf("CL-0001") >= 0, "关票一节显示记录号");
 assert.ok(closingPanel.indexOf("等合并") >= 0, "关票一节显示等合并");
 assert.ok(closingPanel.indexOf("PR #187") >= 0, "关票一节显示 PR 号");
 assert.ok(closingPanel.indexOf("D-3") >= 0, "关票一节显示决定草稿");
+assert.ok(closingPanel.indexOf("关票评论草稿") >= 0, "关票一节列出四条评论草稿");
+assert.ok(closingPanel.indexOf("评论 4") >= 0, "关票一节把四条评论都列出来");
 assert.ok(window.BoardPanels.ticketPanel(b, "T2").indexOf(">关票<") < 0,
   "没有待关票记录时不显示关票一节");
 
