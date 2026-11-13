@@ -1,0 +1,2437 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中台决策看板 · 屏幕原型 #144</title>
+<meta name="description" content="决策看板屏幕原型：导入 #139 与 #1 两张地图的真数据，票和决定两个侧边栏，浅深两套主题。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%231e1b16'/%3E%3Ctext x='8' y='11.5' font-size='9' text-anchor='middle' fill='%23f4f0e7' font-family='serif'%3E中%3C/text%3E%3C/svg%3E">
+<style>
+/* 颜色、圆角、间距 token 在 theme.css */
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(47,74,138,.05),transparent 34rem),
+    radial-gradient(circle at 96% 8%,rgba(150,98,26,.04),transparent 30rem),
+    linear-gradient(0deg,rgba(30,27,22,.014) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(30,27,22,.014) 1px,transparent 1px),
+    var(--paper);
+  background-size:auto,auto,32px 32px,32px 32px,auto;
+  padding-bottom:0;
+}
+p{margin:0}
+h1,h2,h3,h4{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit;text-decoration:none}
+.id{font-family:var(--mono);font-size:12px;letter-spacing:.02em}
+.mono{font-family:var(--mono)}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:1px 8px;font-size:11px;line-height:1.7;white-space:nowrap;color:var(--ink2)}
+.chip.green{border-color:var(--green-line);background:var(--green-soft);color:var(--green)}
+.chip.amber{border-color:var(--amber-line);background:var(--amber-soft);color:var(--amber)}
+.chip.red{border-color:var(--red-line);background:var(--red-soft);color:var(--red)}
+.chip.violet{border-color:var(--violet-line);background:var(--violet-soft);color:var(--violet)}
+.chip.accent{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent2)}
+.chip.gray{color:var(--muted);background:var(--gray-soft)}
+.btn{border:1px solid var(--line2);background:var(--card);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--ink2);transition:.15s}
+.btn:hover{border-color:var(--accent);color:var(--accent2);background:var(--accent-soft)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent2);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--accent-soft);color:var(--accent2)}
+.btn.small{padding:3px 8px;font-size:11px}
+.btn.danger{border-color:var(--red-line);color:var(--red);background:var(--red-soft)}
+.btn.danger:hover{background:var(--red-soft);color:var(--red-ink-strong)}
+.icon{width:14px;height:14px;display:inline-block;vertical-align:-2px}
+
+/* 原型说明：薄条，只在原型环境出现 */
+.prototype-strip{
+  background:var(--chrome);color:var(--chrome-text);font-size:11px;letter-spacing:.03em;
+  padding:4px 18px;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.prototype-strip b{color:var(--chrome-muted);font-weight:600}
+
+/* 顶部栏：44px 常驻，只放全局信息 */
+.topbar{
+  height:var(--topbar-h);display:flex;align-items:center;gap:14px;padding:0 14px 0 16px;
+  background:var(--side-bg);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);position:relative;z-index:30;
+}
+.brand{display:flex;align-items:center;gap:8px;flex:none}
+.logo{
+  width:24px;height:24px;border-radius:var(--r-sm);background:var(--text);color:var(--surface);
+  display:grid;place-items:center;font:600 13px/1 var(--serif);
+}
+.brand b{font-size:12.5px;letter-spacing:.06em}
+.brand small{display:none}
+.tb-sep{width:1px;height:18px;background:var(--border);flex:none}
+.map-title{min-width:0;flex:1;display:flex;align-items:baseline;gap:9px;overflow:hidden}
+.map-title b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.map-title span{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.top-counts{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex:none}
+.top-counts b{font-family:var(--mono);font-weight:600;color:var(--text-body)}
+.seg{display:flex;padding:2px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-sunken);gap:1px;flex:none}
+.seg button{border:0;background:transparent;border-radius:calc(var(--r-md) - 2px);padding:4px 10px;font-size:11.5px;color:var(--text-muted);line-height:1.3}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(30,27,22,.1);font-weight:600}
+[data-theme="dark"] .seg button.active{background:var(--surface-tint);box-shadow:none}
+.top-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);white-space:nowrap;flex:none}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.tb-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;height:28px;min-width:28px;white-space:nowrap;flex:none;
+  border:1px solid transparent;background:transparent;border-radius:var(--r-sm);
+  color:var(--text-muted);font-size:11.5px;padding:0 8px;transition:background var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.tb-btn:hover{background:var(--surface-hover);color:var(--text);border-color:var(--border)}
+.tb-btn[aria-expanded="true"]{background:var(--accent-soft);color:var(--accent-deep);border-color:var(--accent-line)}
+.tb-btn svg{width:14px;height:14px;display:block}
+.tb-group{display:flex;align-items:center;gap:2px;flex:none}
+.tb-signal{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-muted)}
+.tb-signal b{font:600 11px/1 var(--mono);color:var(--text-body)}
+
+/* 顶部栏展开层：在流内，推开内容，绝不遮挡右侧抽屉 */
+.topbar-panel{
+  display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--dur) var(--ease);
+  background:var(--surface-sunken);border-bottom:1px solid transparent;position:relative;z-index:29;
+}
+.topbar-panel.open{grid-template-rows:1fr;border-bottom-color:var(--border)}
+.topbar-panel>div{overflow:hidden}
+.topbar-panel-inner{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:9px 16px;
+  max-height:240px;overflow:auto;
+}
+.tbp-block{display:flex;align-items:center;gap:8px;min-width:0}
+.tbp-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);white-space:nowrap}
+.sig-chips.tbp-chips{margin:0;gap:3px}
+.impact-banner{
+  display:flex;align-items:center;gap:10px;padding:0 16px;height:0;opacity:0;overflow:hidden;
+  background:var(--red-soft);border-bottom:1px solid var(--red-line);
+  font-size:12px;color:var(--red-ink);transition:height var(--dur) var(--ease),opacity var(--dur) var(--ease);
+}
+.impact-banner.show{height:34px;opacity:1}
+.impact-banner:hover{background:var(--red-line)}
+.impact-banner .pulse{width:7px;height:7px;border-radius:50%;background:var(--red);flex:none}
+.impact-banner b{font-weight:600}
+.impact-banner .spacer{flex:1}
+
+/* 版面 A：一张可平移缩放的图，右侧抽屉 */
+.a-shell{display:flex;flex-direction:column;height:calc(100vh - 25px);min-height:560px;overflow:hidden}
+.a-body{position:relative;display:flex;flex:1;min-height:0;overflow:hidden}
+.a-col{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1}
+.a-main{position:relative;min-width:0;overflow:auto;padding:14px;flex:1}
+.a-main.coverage-mode{padding-bottom:14px}
+.a-main.graph-mode{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.a-main.graph-mode .graph-a{flex:1;min-height:0;border:0;border-radius:0;box-shadow:none}
+.a-main.graph-mode .filter-banner{flex:none;margin:10px 14px 0}
+.a-main.graph-mode .sig-chips,.a-main.graph-mode .graph-head{flex:none}
+
+/* 抽屉：472px，从右侧滑入；固定时占位，不遮图 */
+.a-drawer{
+  position:absolute;top:0;right:0;bottom:0;width:var(--drawer-w);max-width:94vw;z-index:40;
+  background:var(--drawer-bg);border-left:1px solid var(--border);
+  box-shadow:var(--shadow-drawer);overflow:auto;padding:0;transform:translateX(100%);
+  transition:transform var(--dur) var(--ease);
+}
+.a-drawer.open{transform:translateX(0)}
+.a-drawer.pinned{position:relative;flex:none;width:var(--drawer-w);transform:none;box-shadow:none;transition:none}
+.a-drawer .drawer-bar{
+  position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:4px;padding:0 10px 0 14px;height:40px;
+  border-bottom:1px solid var(--border);background:var(--sticky-bg);backdrop-filter:blur(8px);
+}
+.a-drawer .drawer-bar .db-kind{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);flex:none}
+.a-drawer .drawer-bar .tb-btn{flex:none;white-space:nowrap}
+.a-drawer .drawer-bar .db-title{margin-right:auto;font:600 12px/1.3 var(--sans);color:var(--text-body);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.a-drawer .sb{padding:14px 16px 96px}
+.a-drawer-handle{
+  position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:35;writing-mode:vertical-rl;
+  border:1px solid var(--border);border-right:0;border-radius:var(--r-md) 0 0 var(--r-md);
+  background:var(--surface);color:var(--text-muted);font:11px/1 var(--sans);padding:11px 4px;letter-spacing:.14em;
+  cursor:pointer;transition:color var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.a-drawer-handle:hover{color:var(--accent-deep);border-color:var(--accent-line)}
+.a-body.drawer-open .a-drawer-handle{display:none}
+.a-body.drawer-open:not(.drawer-pinned) .graph-a-tools{right:var(--drawer-w)}
+.a-body.drawer-open:not(.drawer-pinned) .a-main.coverage-mode{padding-right:calc(var(--drawer-w) + 14px)}
+.graph-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
+.graph-head h1{font:600 18px/1.3 var(--serif);letter-spacing:.01em}
+.graph-head p{font-size:12px;color:var(--text-muted);margin-top:2px}
+.graph-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.graph-wrap{
+  border:1px solid var(--border);border-radius:var(--r-xl);background:
+    radial-gradient(circle at 50% 0%,var(--graph-glow),transparent 60%),
+    linear-gradient(0deg,var(--graph-grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--graph-grid) 1px,transparent 1px),
+    var(--graph-surface);
+  background-size:auto,26px 26px,26px 26px,auto;box-shadow:var(--shadow);overflow:auto;
+}
+.graph-wrap svg{display:block;min-width:820px;width:100%;height:auto}
+.graph-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:11px;color:var(--text-muted)}
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
+.legend-dot.green{background:var(--green)}.legend-dot.amber{background:var(--amber)}.legend-dot.red{background:var(--red)}
+.legend-dot.gray{background:var(--gray-dot)}.legend-dot.accent{background:var(--accent)}.legend-dot.void{background:var(--node-void-stroke)}
+
+/* SVG 图 */
+.node{cursor:pointer}
+.node rect{transition:stroke var(--dur) var(--ease)}
+.node:hover rect{filter:drop-shadow(var(--shadow-node))}
+.node .nrect{fill:var(--node-fill);stroke:var(--node-stroke);stroke-width:1.15}
+.node.green .nrect{fill:var(--green-soft);stroke:var(--green-line)}
+.node.amber .nrect{fill:var(--amber-soft);stroke:var(--amber-line)}
+.node.red .nrect{fill:var(--red-soft);stroke:var(--red-line)}
+.node.root .nrect{fill:var(--accent-soft);stroke:var(--accent-line);stroke-width:1.5}
+.node.bare .nrect{fill:var(--node-bare-fill);stroke:var(--node-bare-stroke);stroke-dasharray:4 3}
+.node.void .nrect{fill:var(--node-void-fill);stroke:var(--node-void-stroke);stroke-dasharray:3 3}
+.node.oldroot .nrect{fill:transparent;stroke:var(--node-oldroot-stroke);stroke-dasharray:6 4}
+.node.selected .nrect{stroke:var(--accent);stroke-width:2.2}
+.node.dim{opacity:.22}
+.node.impact .nrect{stroke:var(--red);stroke-width:2.4}
+.node .nid{font:600 11px/1 var(--mono);fill:var(--text-body);letter-spacing:.02em}
+.node .nstmt{font:13px/1.35 var(--sans);fill:var(--text)}
+.node .nmeta{font:10px/1 var(--sans);fill:var(--text-muted)}
+.node .nbadge{font:9px/1 var(--sans);fill:var(--text-muted);letter-spacing:.06em}
+.node .dot{stroke:var(--surface);stroke-width:2}
+.node .dot.green{fill:var(--green)}.node .dot.amber{fill:var(--amber)}.node .dot.red{fill:var(--red)}
+.node .dot.gray{fill:var(--gray-dot)}.node .dot.accent{fill:var(--accent)}
+.edge path{fill:none;stroke:var(--edge);stroke-width:1.35}
+.edge.strong path{stroke:var(--edge-strong)}
+.edge.impact path{stroke:var(--red);stroke-width:2.3}
+.edge.dim{opacity:.16}
+.edge-label{cursor:pointer}
+.edge-label rect{fill:var(--surface);stroke:var(--border);stroke-width:1}
+.edge-label:hover rect{stroke:var(--accent)}
+.edge-label text{font:10px/1 var(--mono);fill:var(--text-body)}
+.edge-label .t{font:9px/1 var(--sans);fill:var(--text-muted)}
+.edge-label.impact rect{stroke:var(--red);fill:var(--red-soft)}
+.ticket-chip{cursor:pointer}
+.ticket-chip rect{fill:var(--surface);stroke:var(--border-strong);stroke-width:1.1}
+.ticket-chip:hover rect{stroke:var(--accent)}
+.ticket-chip.impact rect{fill:var(--red-soft);stroke:var(--red);stroke-width:2}
+.ticket-chip.dim{opacity:.22}
+.ticket-chip text{font:11px/1 var(--mono);fill:var(--text-body)}
+.ticket-chip .tt{font:10px/1 var(--sans);fill:var(--text-muted)}
+.old-band{cursor:pointer}
+.old-band rect{fill:var(--old-band);stroke:var(--old-band-stroke);stroke-dasharray:5 4}
+.old-band text{font:11px/1 var(--sans);fill:var(--text-muted)}
+.old-band:hover rect{stroke:var(--accent)}
+.svg-note{font:10px/1.3 var(--sans);fill:var(--text-faint)}
+
+.graph-a{
+  position:relative;flex:1;min-height:460px;border:1px solid var(--border);border-radius:var(--r-xl);
+  background:
+    radial-gradient(circle at 50% 0%,var(--graph-glow),transparent 60%),
+    linear-gradient(0deg,var(--graph-grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--graph-grid) 1px,transparent 1px),
+    var(--graph-surface);
+  background-size:auto,26px 26px,26px 26px,auto;box-shadow:var(--shadow);overflow:hidden;touch-action:none;cursor:grab;user-select:none;
+}
+.graph-a svg{display:block;width:100%;height:100%}
+.graph-a .graph-a-tools{
+  position:absolute;right:12px;top:12px;z-index:2;display:flex;gap:2px;align-items:center;
+  background:var(--graph-tools-bg);border:1px solid var(--border);border-radius:var(--r-md);padding:2px;
+  backdrop-filter:blur(6px);transition:right var(--dur) var(--ease);
+}
+.graph-a .graph-a-tools button{height:26px;min-width:26px;border:0;border-radius:calc(var(--r-md) - 2px);background:transparent;color:var(--text-body);font:13px/1 var(--sans);padding:0 5px}
+.graph-a .graph-a-tools button:hover{background:var(--accent-soft);color:var(--accent-deep)}
+.graph-a .graph-a-tools .zoom-pct{min-width:40px;text-align:center;font:10px/1 var(--mono);color:var(--text-muted);padding:0 2px}
+.graph-a-hint{position:absolute;left:12px;top:14px;font-size:10px;color:var(--text-faint);background:var(--graph-hint-bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:2px 6px;pointer-events:none}
+body.dragging-a{cursor:grabbing}
+body.dragging-a *{cursor:grabbing!important;user-select:none}
+.edge-a path{fill:none;stroke:var(--edge);stroke-width:1.35}
+.edge-a.strong path{stroke:var(--edge-strong);stroke-width:1.55}
+.edge-a.sel path{stroke:var(--accent);stroke-width:2.2}
+.edge-a.dim{opacity:.14}
+.edge-a.impact path{stroke:var(--red);stroke-width:2.3}
+.edge-a.impact.dim{opacity:.2}
+.edge-a.derive path{stroke:var(--violet);stroke-width:1.2;stroke-dasharray:4 4;opacity:.75}
+.edge-a.derive.dim{opacity:.16}
+.bus-a path{fill:none;stroke:var(--edge);stroke-width:1.2}
+.bus-a.impact path{stroke:var(--red);stroke-width:1.9}
+.bus-a.sel path{stroke:var(--accent);stroke-width:1.8}
+.bus-a.dim{opacity:.25}
+.branch-a{fill:none;stroke:var(--edge-branch);stroke-width:1.2;stroke-dasharray:4 4}
+.branch-a.done{stroke:var(--edge-strong);stroke-dasharray:none;stroke-width:1.5}
+.branch-a.impact{stroke:var(--red);stroke-width:1.9}
+.branch-a.sel{stroke:var(--accent);stroke-width:1.8}
+.branch-a.dim{opacity:.18}
+.node-a{cursor:pointer}
+.node-a .nrect-a{fill:var(--node-fill);stroke:var(--node-stroke);stroke-width:1.15}
+.node-a.green .nrect-a{fill:var(--green-soft);stroke:var(--green-line)}
+.node-a.amber .nrect-a{fill:var(--amber-soft);stroke:var(--amber-line)}
+.node-a.red .nrect-a{fill:var(--red-soft);stroke:var(--red-line)}
+.node-a.bare .nrect-a{fill:var(--node-bare-fill);stroke:var(--node-bare-stroke);stroke-dasharray:4 3}
+.node-a.void .nrect-a{fill:var(--node-void-fill);stroke:var(--node-void-stroke);stroke-dasharray:3 3}
+.node-a.root .nrect-a{fill:var(--accent-soft);stroke:var(--accent-line);stroke-width:1.5}
+.node-a .na-id{font:600 11px/1 var(--mono);fill:var(--text-body);letter-spacing:.02em}
+.node-a .na-stmt{font:13px/1.35 var(--sans);fill:var(--text)}
+.node-a.root .na-stmt{font-size:14px}
+.node-a .na-meta{font:10px/1 var(--sans);fill:var(--text-muted)}
+.node-a .na-badge{font:9px/1 var(--sans);fill:var(--text-muted);letter-spacing:.06em}
+.node-a .dot{stroke:var(--surface);stroke-width:2}
+.node-a .dot.green{fill:var(--green)}.node-a .dot.amber{fill:var(--amber)}.node-a .dot.red{fill:var(--red)}.node-a .dot.accent{fill:var(--accent)}.node-a .dot.gray{fill:var(--gray-dot)}
+.node-a.sel .nrect-a{stroke:var(--accent);stroke-width:2.4}
+.node-a.impact .nrect-a{stroke:var(--red);stroke-width:2.4}
+.node-a.dim{opacity:.24}
+.node-a:hover .nrect-a{filter:drop-shadow(var(--shadow-node))}
+.tnode-a{cursor:pointer}
+.tnode-a .trect{fill:var(--surface);stroke:var(--border-strong);stroke-width:1.1}
+.tnode-a.open .trect{fill:var(--canvas-warm);stroke-dasharray:5 4}
+.tnode-a:hover .trect{stroke:var(--accent)}
+.tnode-a.sel .trect{stroke:var(--accent);stroke-width:2.4}
+.tnode-a.impact .trect{stroke:var(--red);stroke-width:2.3;fill:var(--red-soft)}
+.tnode-a.dim{opacity:.24}
+.tnode-a .tn-id{font:600 11px/1 var(--mono);fill:var(--text-body)}
+.tnode-a .tn-title{font:11px/1.2 var(--sans);fill:var(--text-body)}
+.tnode-a .tn-why{font:9.5px/1.2 var(--sans);fill:var(--text-muted)}
+.tnode-a .tn-from{font:10px/1 var(--sans);fill:var(--violet)}
+.tnode-a .tn-to{font:10px/1 var(--sans);fill:var(--accent)}
+.tnode-a .tn-to.empty{fill:var(--text-faint)}
+.tnode-a .tn-cover{font:9px/1 var(--sans);fill:var(--text-faint)}
+.tnode-a .rel-dot.from{fill:var(--violet)}
+.tnode-a .rel-dot.to{fill:var(--accent)}
+.tnode-a .tn-meta{font:9px/1 var(--sans);fill:var(--text-muted)}
+.tnode-a .tn-type{font:9px/1 var(--sans);font-weight:600}
+.tnode-a .dot{stroke:var(--surface);stroke-width:1.5}
+.tnode-a .dot.green{fill:var(--green)}.tnode-a .dot.amber{fill:var(--amber)}.tnode-a .dot.accent{fill:var(--accent)}.tnode-a .dot.gray{fill:var(--gray-dot)}
+.type-pill.type-grilling{fill:var(--accent-soft);stroke:var(--accent-line)}
+.type-pill.type-research{fill:var(--violet-soft);stroke:var(--violet-line)}
+.type-pill.type-prototype{fill:var(--amber-soft);stroke:var(--amber-line)}
+.type-pill.type-task{fill:var(--gray-soft);stroke:var(--border)}
+.tn-type.type-grilling{fill:var(--accent-deep)}
+.tn-type.type-research{fill:var(--violet)}
+.tn-type.type-prototype{fill:var(--amber)}
+.tn-type.type-task{fill:var(--text-muted)}
+.tbar.done{fill:var(--green)}
+.tbar.wait{fill:var(--amber)}
+.dec-group-a{cursor:pointer}
+.dec-sep{stroke:var(--border);stroke-dasharray:2 3}
+.dec-sub-label{font:9px/1 var(--sans);fill:var(--text-muted);letter-spacing:.04em}
+.dec-extra-row{cursor:pointer}
+.dec-extra-row rect{fill:transparent}
+.dec-extra-row:hover rect{fill:var(--accent-soft)}
+.dec-extra-row .ex-id{font:600 9.5px/1 var(--mono);fill:var(--text-body)}
+.dec-extra-row .ex-stmt{font:9.5px/1 var(--sans);fill:var(--text-muted)}
+.dec-sub-stmt{font:10.5px/1.35 var(--sans);fill:var(--text-body)}
+.dec-sub-prem{font:8.5px/1 var(--sans);fill:var(--text-muted)}
+.pr-a-label{font:600 9px/1 var(--sans);fill:var(--text-muted);letter-spacing:.05em}
+.pr-a-stmt{font:10px/1.3 var(--sans);fill:var(--text-body)}
+.pr-a-ev{font:8.8px/1.28 var(--sans);fill:var(--text-muted)}
+.pr-a-judge{font:8.8px/1.28 var(--sans);fill:var(--text-body)}
+.edge-tag-a{font:8.5px/1 var(--sans);fill:var(--text-faint);letter-spacing:.03em}
+.bus-label-a{font:9px/1 var(--sans);fill:var(--text-faint);letter-spacing:.03em}
+.legend-line{display:inline-block;width:16px;height:0;border-top:1.5px dashed var(--edge-branch);margin-right:4px;vertical-align:3px}
+.legend-line.solid{border-top-style:solid;border-top-color:var(--edge-strong)}
+.impact-main{display:flex;flex-direction:column}
+.impact-main .graph-a{flex:1;min-height:520px}
+.impact-main .graph-legend{flex:none}
+
+/* 详情 */
+.detail-head{padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.detail-head .id-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px}
+.detail-head h2{font:600 20px/1.45 var(--serif);letter-spacing:.01em}
+.detail-head .sub{font-size:12px;color:var(--muted);margin-top:5px}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.section{margin:16px 0 0}
+.section h3{display:flex;align-items:center;gap:7px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.section h3 .count{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:0}
+.premise{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 11px;margin-bottom:8px}
+.premise.red{border-color:var(--red-line);background:linear-gradient(180deg,var(--red-soft),var(--card) 70%)}
+.premise.amber{border-color:var(--amber-line);background:linear-gradient(180deg,var(--amber-soft),var(--card) 70%)}
+.premise.green{border-color:var(--green-line);background:linear-gradient(180deg,var(--green-soft),var(--card) 70%)}
+.premise.gray{border-style:dashed}
+.p-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.p-stmt{font:13px/1.5 var(--serif);color:var(--ink)}
+.p-ev{font-size:11px;color:var(--muted);margin-top:5px;word-break:break-word}
+.p-reason{font-size:11px;color:var(--ink2);margin-top:5px;padding-left:8px;border-left:2px solid var(--line2)}
+.p-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;font-size:10px;color:var(--faint)}
+.sub-row{display:flex;gap:8px;align-items:flex-start;padding:7px 4px;border-bottom:1px dashed var(--line);cursor:pointer}
+.sub-row:hover{background:var(--accent-soft)}
+.sub-row .sid{min-width:64px;font:10px/1.5 var(--mono);color:var(--muted)}
+.sub-row .sst{font-size:12px;line-height:1.45;color:var(--ink2)}
+.sub-row .dot{width:7px;height:7px;border-radius:50%;margin-top:6px;flex:none}
+.kv{display:grid;grid-template-columns:74px minmax(0,1fr);gap:6px 10px;font-size:12px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;color:var(--ink2);word-break:break-word}
+.chain-box{border:1px solid var(--line);border-radius:10px;background:var(--card2);padding:10px 12px;font-size:12px;line-height:1.55;color:var(--ink2)}
+.chain-box p{margin:0 0 6px}
+.chain-box p:last-child{margin-bottom:0}
+.chain-box .meta{color:var(--muted);font-size:11px}
+.flow-dec{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:9px 11px;margin-bottom:8px}
+.flow-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.flow-dec p{font-size:12px;line-height:1.55;color:var(--ink2)}
+.frag-row{display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 8px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.frag-row .cov-num{font:10px/1.6 var(--mono);color:var(--muted)}
+.frag-row p{font-size:12px;line-height:1.5;color:var(--ink2)}
+.frag-row > div{grid-column:2;display:flex;gap:4px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:6px;background:var(--card);padding:1px 7px;font:11px/1.7 var(--mono);color:var(--ink2);cursor:pointer;margin:0 4px 4px 0}
+.pill:hover{border-color:var(--accent);color:var(--accent2)}
+.pill .work-dot{width:6px;height:6px;border-radius:50%;background:var(--gray-dot)}
+.pill .work-dot.done{background:var(--green)}.pill .work-dot.now{background:var(--accent)}.pill .work-dot.stuck{background:var(--amber)}
+.empty{font-size:12px;color:var(--muted);padding:8px 0}
+.note{font-size:11px;color:var(--muted);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px}
+
+/* 票侧边栏：内容层 */
+.archive-focus{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0;padding:8px 11px;margin-top:12px}
+.archive-focus .id-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.archive-focus-stmt{margin:0;white-space:pre-wrap;font:12.5px/1.6 var(--sans);color:var(--accent2)}
+.fold{border:1px solid var(--line);border-radius:10px;background:var(--card);margin-top:12px;overflow:hidden}
+.fold>summary{display:flex;align-items:center;gap:7px;cursor:pointer;padding:9px 11px;list-style:none;background:var(--card2);font-size:12px;font-weight:600;color:var(--ink2)}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::before{content:"▸";font-size:10px;color:var(--muted)}
+.fold[open]>summary::before{content:"▾"}
+.fold>summary .fold-hint{margin-left:auto;font-size:10px;font-weight:400;color:var(--muted);letter-spacing:0}
+.fold-body{padding:10px 12px 12px}
+.fold-body .archive-lead{font:13px/1.65 var(--serif);color:var(--ink)}
+.subfold{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+.subfold>summary{cursor:pointer;font-size:11px;color:var(--muted);list-style:none}
+.subfold>summary::-webkit-details-marker{display:none}
+.subfold>summary::before{content:"▸ ";font-size:9px}
+.subfold[open]>summary::before{content:"▾ "}
+.archive-body{margin:7px 0 0;padding:9px 10px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-word;border:1px solid var(--line);border-radius:8px;background:var(--paper2);font:11.5px/1.65 var(--mono);color:var(--ink2)}
+.archive-body-empty{font-size:11px;color:var(--muted);margin-top:8px}
+.premise-row{border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:7px;overflow:hidden}
+.premise-row>summary{display:flex;align-items:center;gap:6px;padding:7px 9px;cursor:pointer;list-style:none}
+.premise-row>summary::-webkit-details-marker{display:none}
+.premise-row>summary::before{content:"▸";font-size:10px;color:var(--muted);flex:none}
+.premise-row[open]>summary::before{content:"▾"}
+.premise-row.red{border-color:var(--red-line);background:linear-gradient(180deg,var(--red-soft),var(--card) 72%)}
+.premise-row.amber{border-color:var(--amber-line);background:linear-gradient(180deg,var(--amber-soft),var(--card) 72%)}
+.premise-row.green{border-color:var(--green-line);background:linear-gradient(180deg,var(--green-soft),var(--card) 72%)}
+.premise-row.gray{border-style:dashed}
+.p-stmt-inline{flex:1;min-width:0;font:12px/1.45 var(--sans);color:var(--ink2)}
+.premise-row .p-dec{font:9px/1 var(--mono);color:var(--faint);white-space:nowrap}
+.premise-context{padding:0 10px 10px}
+.premise-context .kv{grid-template-columns:64px minmax(0,1fr)}
+.archive-decisions{display:flex;flex-direction:column;gap:7px}
+.archive-decision{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:9px 11px}
+.archive-decision.focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.archive-decision-head{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px}
+.id-link{border:0;background:transparent;padding:0;font:600 11px/1.4 var(--mono);color:var(--ink2);cursor:pointer}
+.id-link:hover{color:var(--accent2);text-decoration:underline}
+.archive-decision-stmt{margin:0;white-space:pre-wrap;font:12.5px/1.6 var(--sans);color:var(--ink2)}
+.excerpt-group{margin-bottom:12px}
+.excerpt-group:last-child{margin-bottom:0}
+.excerpt-group h4{font:600 10px/1.4 var(--sans);letter-spacing:.07em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.excerpt{border-left:2px solid var(--line2);padding:1px 0 1px 9px;margin-bottom:10px}
+.excerpt:last-child{margin-bottom:0}
+.excerpt.focus{border-left-color:var(--accent);background:var(--accent-soft);border-radius:0 7px 7px 0;padding:6px 9px}
+.excerpt .ex-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px}
+.excerpt .ex-q{font-size:12px;line-height:1.5;color:var(--ink)}
+.excerpt .ex-a{font-size:12px;line-height:1.5;color:var(--ink2);margin-top:3px}
+.excerpt .ex-src{font-size:10px;color:var(--muted);margin-top:4px;word-break:break-word}
+.archive-todo{margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:var(--ink2)}
+.archive-todo li{margin-bottom:5px}
+.archive-empty{font-size:11px;color:var(--muted)}
+
+.p-timeline{list-style:none;margin:7px 0 0;padding:0 0 0 14px;border-left:2px solid var(--line2)}
+.p-timeline li{position:relative;padding:0 0 9px 11px}
+.p-timeline li:last-child{padding-bottom:0}
+.p-timeline li::before{content:"";position:absolute;left:-19px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--line2);border:1.5px solid var(--card)}
+.p-timeline .step-label{display:block;font:600 9px/1.4 var(--sans);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.p-timeline p{margin:1px 0 0;font-size:11.5px;line-height:1.55;color:var(--ink2)}
+.p-timeline .step-source{font-size:10px;color:var(--muted);margin-top:2px}
+.premise-row.red .p-timeline{border-left-color:var(--red-line)}
+.premise-row.green .p-timeline{border-left-color:var(--green-line)}
+.premise-row.amber .p-timeline{border-left-color:var(--amber-line)}
+.p-break-card{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:11px 12px;margin-top:12px}
+.p-break-card.red{border-color:var(--red-line);background:linear-gradient(180deg,var(--red-soft),var(--card) 55%)}
+.p-break-card.green{border-color:var(--green-line);background:linear-gradient(180deg,var(--green-soft),var(--card) 55%)}
+.p-break-card.amber{border-color:var(--amber-line);background:linear-gradient(180deg,var(--amber-soft),var(--card) 55%)}
+.p-break-card.gray{border-style:dashed;background:var(--card2)}
+.p-break-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.p-break-stmt{margin:0;font:13px/1.5 var(--serif);color:var(--ink)}
+.p-break-why{margin-top:7px;font-size:11.5px;line-height:1.55;color:var(--ink2)}
+.p-break-why b{color:var(--ink)}
+.p-break-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px}
+.p-break-actions .btn{font-size:10px;padding:3px 7px}
+.causal-chain{margin-top:12px}
+.chain-node{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:8px 10px}
+button.chain-node{display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.chain-node.premise.red{border-color:var(--red-line);background:var(--red-soft)}
+.chain-node.premise.green{border-color:var(--green-line);background:var(--green-soft)}
+.chain-node.premise.amber{border-color:var(--amber-line);background:var(--amber-soft)}
+.chain-node.premise.gray{border-style:dashed;background:var(--card2)}
+.chain-node.main{border-color:var(--accent-line);background:var(--accent-soft)}
+.chain-node .chain-step{font:600 9px/1.4 var(--sans);letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-right:5px}
+.chain-node p{margin:3px 0 0;font-size:11.5px;line-height:1.5;color:var(--ink2)}
+.chain-node .chain-stmt{font:12px/1.5 var(--serif);color:var(--ink)}
+.chain-edge{display:flex;align-items:center;gap:6px;padding:5px 0 5px 11px;font-size:9.5px;color:var(--muted);letter-spacing:.03em}
+.chain-edge::before{content:"";width:1px;height:12px;background:var(--line2);margin-left:3px}
+.chain-subs{display:flex;flex-direction:column;gap:5px;margin-left:13px;border-left:2px solid var(--line2);padding-left:10px}
+.chain-sub{display:flex;align-items:flex-start;gap:7px;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:6px 8px;font-size:11px;line-height:1.45;color:var(--ink2);cursor:pointer}
+button.chain-sub{width:100%;text-align:left;font:inherit;color:inherit}
+.chain-sub:hover{border-color:var(--accent)}
+.chain-sub .id{flex:none;min-width:56px}
+.relation-block{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:11px 12px;margin-top:12px}
+.relation-main{border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:9px;padding:8px 10px;cursor:pointer}
+.relation-main:hover{border-color:var(--accent)}
+.relation-main .relation-role{margin:3px 0 0;font-size:11.5px;color:var(--accent2)}
+.relation-main .relation-stmt{margin:5px 0 0;font:12px/1.5 var(--serif);color:var(--ink)}
+.relation-note{margin:8px 0;font-size:11px;line-height:1.55;color:var(--muted)}
+.relation-subs{display:flex;flex-direction:column;gap:5px}
+.relation-sub{display:flex;align-items:flex-start;gap:7px;border:1px solid var(--line);border-radius:8px;background:var(--card2);padding:6px 8px;font-size:11px;line-height:1.45;color:var(--ink2);cursor:pointer}
+button.relation-sub{width:100%;text-align:left;font:inherit;color:inherit}
+.relation-sub:hover{border-color:var(--accent)}
+.relation-sub .id{flex:none;min-width:56px}
+.relation-sub.active,.chain-sub.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-soft)}
+.relation-main.active,.chain-node.main.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.archive-decision-role{margin:0 0 5px;font-size:10.5px;color:var(--muted)}
+.archive-group-label{display:flex;align-items:center;gap:7px;margin:14px 0 7px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.archive-group-label:first-child{margin-top:0}
+
+
+/* ---------- 侧边栏 v2：票 / 决定 ---------- */
+#app{min-height:100vh}
+.a-root{height:100vh;display:flex;flex-direction:column;min-height:560px}
+.a-root>.a-shell{flex:1;min-height:0}
+.a-shell{display:flex;flex-direction:column;min-height:560px;overflow:hidden}
+
+.sb-head{padding:2px 0 12px;border-bottom:1px solid var(--border)}
+.sb-idrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.sb-head h2{font:600 18px/1.5 var(--serif);letter-spacing:.005em;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.sb-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.6}
+.sb-meta a{color:var(--accent-deep)}
+.sb-meta a:hover{text-decoration:underline}
+.sb-dot{color:var(--text-faint)}
+.sb-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:11px}
+
+.sb-h{display:flex;align-items:center;gap:8px;margin:20px 0 9px;font:600 12px/1.35 var(--sans);color:var(--text-body);letter-spacing:.01em}
+.sb-h:first-of-type{margin-top:16px}
+.sb-n{flex:none;font:600 9.5px/1 var(--mono);color:var(--text-faint);border:1px solid var(--border);border-radius:var(--r-xs);padding:3px 4px;letter-spacing:.02em}
+.sb-h .sb-cnt{margin-left:auto;font:10px/1 var(--mono);color:var(--text-faint);letter-spacing:0}
+
+.sb-p{font:13px/1.75 var(--serif);color:var(--text-body);word-break:break-word}
+.sb-p+.sb-p{margin-top:7px}
+.sb-lead{font:13px/1.75 var(--serif);color:var(--text-body);white-space:pre-wrap}
+.sb-md{font-size:12.5px;line-height:1.75;color:var(--text-body)}
+.sb-md p{margin:0 0 6px}
+.sb-md p:last-child{margin-bottom:0}
+.sb-md .md-h{font-weight:600;color:var(--text);margin:9px 0 4px}
+.md-list{margin:5px 0 7px;padding-left:16px}
+.md-list li{margin-bottom:3px}
+.md-list li::marker{color:var(--text-faint)}
+.inline-code{font:11.5px/1 var(--mono);background:var(--surface-tint);border-radius:var(--r-xs);padding:1px 4px;color:var(--text)}
+.sb-kv dd .md-list{margin:2px 0 0}
+.sb-quiet{font-size:11.5px;line-height:1.65;color:var(--text-muted)}
+
+.sb-kv{display:grid;grid-template-columns:68px minmax(0,1fr);gap:7px 10px;font-size:12px;line-height:1.6}
+.sb-kv dt{color:var(--text-muted);white-space:nowrap}
+.sb-kv dd{margin:0;color:var(--text-body);word-break:break-word}
+
+.frag-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.frag-list li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:start;font-size:11.5px;line-height:1.55;color:var(--text-body);padding:5px 0;border-bottom:1px dashed var(--border-faint)}
+.frag-list li:last-child{border-bottom:0}
+.frag-n{font:10px/1.6 var(--mono);color:var(--text-faint);white-space:nowrap}
+
+/* 产出的决定列表 */
+.prod-row{display:flex;align-items:flex-start;gap:7px;padding:7px 8px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:5px;cursor:pointer;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.prod-row:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.prod-row .pr-id{flex:none;font:600 10.5px/1.7 var(--mono);color:var(--text-body);min-width:52px}
+.prod-row .pr-role{flex:1;min-width:0;font-size:11.5px;line-height:1.5;color:var(--text-body);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.prod-row .pr-state{flex:none}
+
+/* 前提行：一行一条，展开看四步 */
+.p-line{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:6px;overflow:hidden}
+.p-line>summary{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;list-style:none}
+.p-line>summary::-webkit-details-marker{display:none}
+.p-line>summary::before{content:"";width:6px;height:6px;border-radius:50%;flex:none;background:var(--gray-dot)}
+.p-line.red>summary::before{background:var(--red)}
+.p-line.amber>summary::before{background:var(--amber)}
+.p-line.green>summary::before{background:var(--green)}
+.p-line .pl-id{flex:none;font:600 10.5px/1.5 var(--mono);color:var(--text-body)}
+.p-line .pl-stmt{flex:1;min-width:0;font-size:12px;line-height:1.5;color:var(--text-body);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.p-line .pl-body{padding:0 10px 10px}
+
+/* 关系：组内 */
+.rel-block{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);padding:11px 12px}
+.rel-main{display:block;width:100%;text-align:left;font:inherit;border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:var(--r-sm);padding:8px 10px;cursor:pointer}
+.rel-main .rm-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rel-main .rm-role{margin:3px 0 0;font-size:11.5px;line-height:1.5;color:var(--accent-deep)}
+.rel-main .rm-stmt{margin:5px 0 0;font:12px/1.55 var(--serif);color:var(--text);white-space:pre-wrap}
+.rel-dim{display:grid;grid-template-columns:78px minmax(0,1fr);gap:5px 9px;padding:7px 0;border-top:1px dashed var(--border-faint);align-items:start}
+.rel-dim:first-of-type{border-top:0;margin-top:9px}
+.rel-dim .rd-name{font-size:10px;letter-spacing:.04em;color:var(--text-muted);padding-top:2px;line-height:1.4}
+.rel-dim .rd-items{display:flex;flex-wrap:wrap;gap:4px}
+.rel-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-sunken);padding:3px 7px;font:11px/1.5 var(--sans);color:var(--text-body);cursor:pointer;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.rel-chip:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.rel-chip.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep);font-weight:600}
+.rel-chip .rc-id{font:600 10px/1 var(--mono);color:var(--text-muted)}
+.rel-chip.active .rc-id{color:var(--accent-deep)}
+.rel-note{margin:9px 0 0;font-size:10.5px;line-height:1.6;color:var(--text-faint)}
+
+/* 关系：组间小树 */
+.group-tree{display:block;width:100%;height:auto}
+.gt-root{font:600 10.5px/1 var(--mono);fill:var(--text-body)}
+.gt-label{font:10px/1 var(--sans);fill:var(--text-muted)}
+.gt-ticket{font:9px/1 var(--mono);fill:var(--text-faint)}
+.gt-node rect{fill:var(--surface);stroke:var(--border-strong);stroke-width:1}
+.gt-node.cur rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.6}
+.gt-node.cur rect.gt-ring{fill:none;stroke:var(--accent);stroke-width:1.6}
+.gt-node{cursor:pointer}
+.gt-node:hover rect{stroke:var(--accent)}
+.gt-edge{stroke:var(--edge);stroke-width:1.2;fill:none}
+.gt-cur-label{font:600 9px/1 var(--sans);fill:var(--accent-deep);letter-spacing:.06em}
+
+/* 影响 */
+.impact-line{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);margin-bottom:6px}
+.impact-line.hot{border-color:var(--red-line);background:var(--red-soft)}
+.impact-line .il-k{flex:none;font-size:10px;letter-spacing:.06em;color:var(--text-muted);text-transform:uppercase;padding-top:2px;width:42px}
+.impact-line .il-v{flex:1;min-width:0;font-size:11.5px;line-height:1.6;color:var(--text-body)}
+
+/* 空态 */
+.sb-empty{border:1px dashed var(--border-strong);border-radius:var(--r-md);padding:10px 12px;font-size:11.5px;line-height:1.65;color:var(--text-muted);background:var(--surface-sunken)}
+
+/* 顶部栏三段主题 */
+.theme-seg{display:flex;gap:1px;padding:2px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-sunken);flex:none}
+.theme-seg button{border:0;background:transparent;border-radius:calc(var(--r-md) - 2px);width:24px;height:22px;display:grid;place-items:center;color:var(--text-muted)}
+.theme-seg button svg{width:13px;height:13px;display:block}
+.theme-seg button:hover{color:var(--text)}
+.theme-seg button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(30,27,22,.1)}
+[data-theme="dark"] .theme-seg button.active{background:var(--surface-tint);box-shadow:none}
+
+/* 覆盖表 */
+.coverage{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.cov-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:16px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--card2),var(--card))}
+.cov-head h2{font:600 19px/1.35 var(--serif);margin-top:3px}
+.cov-head .sum{font-size:11px;color:var(--muted);margin-top:3px}
+.cov-bar{min-width:210px}
+.cov-bar .bar{height:8px;border-radius:999px;background:var(--surface-tint);overflow:hidden;display:flex}
+.cov-bar .bar i{display:block;height:100%}
+.cov-bar .bar .done{background:var(--green)}
+.cov-bar .bar .doing{background:var(--amber)}
+.cov-bar .bar .gap{background:var(--red)}
+.cov-bar .lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px}
+.cov-table{width:100%;border-collapse:collapse}
+.cov-table th{text-align:left;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--card2)}
+.cov-table td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.cov-table tr:last-child td{border-bottom:0}
+.cov-table tr:hover td{background:var(--surface-hover)}
+.cov-num{font:600 11px/1 var(--mono);color:var(--faint)}
+.cov-text{font:13px/1.55 var(--serif);color:var(--ink)}
+.cov-tickets{display:flex;flex-wrap:wrap;gap:4px;max-width:190px}
+.cov-table{table-layout:fixed}
+.pill-more{color:var(--text-muted);cursor:default}
+.cov-status{font-size:11px;white-space:nowrap}
+.cov-status.done{color:var(--green)}
+.cov-status.doing{color:var(--amber)}
+.cov-status.gap{color:var(--red);font-weight:600}
+.cov-status.void{color:var(--muted);text-decoration:line-through}
+.cov-row.gap td{background:var(--red-soft)}
+.cov-row.gap .cov-text{color:var(--red-ink)}
+.cov-note{padding:10px 14px;font-size:11px;color:var(--muted);background:var(--card2);border-top:1px solid var(--line)}
+.cov-compact{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.cov-mini-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--card2)}
+.cov-mini-head b{display:block;font:600 12px/1.4 var(--serif);margin-top:2px}
+.cov-mini-head .cov-bar{min-width:110px;flex:none}
+.cov-mini{padding:8px 11px;border-bottom:1px solid var(--line)}
+.cov-mini:last-child{border-bottom:0}
+.cov-mini.gap{background:var(--red-soft)}
+.cm-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.cm-text{font:12px/1.45 var(--serif);color:var(--ink);margin-top:2px}
+.cm-tickets{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.cm-tickets .pill{font-size:10px;padding:0 5px;margin:0}
+
+/* 信号 */
+.sig-list{display:flex;flex-direction:column;gap:4px}
+.sig-chips{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 10px}
+.sig-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 8px;font-size:11px;color:var(--ink2)}
+.sig-chip:hover{border-color:var(--accent)}
+.sig-chip.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+.sig-chip b{font:10px/1 var(--mono);color:var(--muted)}
+.sig-chip i{font-style:normal;font-size:9px;color:var(--violet);border:1px solid var(--violet-line);background:var(--violet-soft);border-radius:4px;padding:0 3px}
+.sig-chip .sig-dot{width:6px;height:6px;border-radius:50%;flex:none}
+.sig{display:flex;align-items:center;gap:7px;width:100%;border:1px solid transparent;background:transparent;border-radius:7px;padding:5px 7px;text-align:left;font-size:12px}
+.sig:hover{background:var(--card2);border-color:var(--line)}
+.sig.active{background:var(--accent-soft);border-color:var(--accent-line)}
+.sig .sig-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.sig .sig-label{flex:1;color:var(--ink2)}
+.sig .sig-count{font:10px/1 var(--mono);color:var(--muted)}
+.sig .sig-count.zero{color:var(--faint)}
+.sig .sig-demo{font-size:9px;color:var(--violet);border:1px solid var(--violet-line);background:var(--violet-soft);border-radius:4px;padding:0 4px}
+.sig-dot.green{background:var(--green)}.sig-dot.amber{background:var(--amber)}.sig-dot.red{background:var(--red)}
+.sig-dot.gray{background:var(--gray-dot)}.sig-dot.violet{background:var(--violet)}
+.sig-hint{font-size:10px;color:var(--muted);padding:0 7px 6px 21px;line-height:1.5}
+.signal-panel{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px;margin-top:12px}
+.signal-panel h3{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.filter-banner{display:flex;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent2);border-radius:9px;padding:7px 10px;font-size:12px;margin-bottom:10px}
+.filter-banner b{font-weight:600}
+
+/* 影响清单 */
+.impact-banner{display:flex;align-items:center;gap:12px;padding:9px 20px;background:linear-gradient(90deg,var(--red-soft),var(--surface));border-bottom:1px solid var(--red-line);font-size:12px;color:var(--red-ink)}
+.impact-banner .pulse{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px rgba(168,58,44,.13);animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(168,58,44,.12)}50%{box-shadow:0 0 0 7px rgba(168,58,44,.04)}}
+.impact-banner b{font-weight:600}
+.impact-banner .spacer{flex:1}
+.queue-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.queue-head h2{font:600 20px/1.3 var(--serif)}
+.queue-head .progress{font:11px/1.5 var(--mono);color:var(--muted);text-align:right}
+.queue-head .progress b{display:block;font:600 18px/1 var(--mono);color:var(--red)}
+.trigger-card{border:1px solid var(--red-line);background:var(--red-soft);border-radius:10px;padding:10px 11px;margin-bottom:10px}
+.trigger-card .tc-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.trigger-card p{font-size:12px;color:var(--red-ink);line-height:1.5}
+.q-list{display:flex;flex-direction:column;gap:7px}
+.q-item{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:9px 10px}
+.q-item.pending{border-left:3px solid var(--red)}
+.q-item.done{opacity:.72;border-left:3px solid var(--green)}
+.q-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.q-top .kind{font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.q-why{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.45}
+.q-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.q-actions .btn{font-size:10px;padding:3px 7px}
+.q-done-line{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;font-size:11px;color:var(--green)}
+.q-empty{font-size:12px;color:var(--muted);padding:12px 0}
+.impact-layout{display:grid;grid-template-columns:minmax(0,1fr) 392px;flex:1;min-height:0}
+.impact-main{overflow:auto;padding:18px 20px 80px}
+.impact-side{border-left:1px solid var(--line);overflow:auto;padding:18px 18px 110px;background:var(--side-bg)}
+
+/* 地图切换 */
+.map-seg{display:flex;gap:2px;background:var(--sunken);border:1px solid var(--line);border-radius:8px;padding:2px;flex:none}
+.map-seg button{border:0;background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;line-height:1;padding:5px 8px;border-radius:6px;cursor:pointer}
+.map-seg button:hover{color:var(--ink)}
+.map-seg button.active{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* 弹窗与提示 */
+.modal-wrap{position:fixed;inset:0;z-index:100;display:grid;place-items:center}
+.modal-backdrop{position:absolute;inset:0;background:rgba(20,18,14,.38);backdrop-filter:blur(2px)}
+.modal{position:relative;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 80px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px -20px rgba(20,18,14,.45);padding:18px 20px 20px}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.modal-head h3{font:600 19px/1.3 var(--serif)}
+.modal-head .sub{font-size:11px;color:var(--muted);margin-top:3px}
+.modal-close{border:0;background:transparent;font-size:22px;line-height:1;color:var(--muted);padding:0 2px}
+.modal label{display:block;font-size:11px;color:var(--muted);margin:10px 0 4px}
+.modal textarea,.modal input,.modal select{width:100%;border:1px solid var(--line2);border-radius:8px;background:var(--paper2);padding:8px 9px;font:13px/1.5 var(--sans);color:var(--ink);outline:none}
+.modal textarea:focus,.modal input:focus,.modal select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.modal textarea{min-height:74px;resize:vertical}
+.modal .radio-row{display:flex;gap:6px;flex-wrap:wrap}
+.modal .radio-row label{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:7px;padding:5px 9px;margin:0;font-size:12px;color:var(--ink2);cursor:pointer}
+.modal .radio-row input{width:auto;margin:0}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(8px);z-index:120;background:var(--chrome);color:var(--chrome-text);border-radius:9px;padding:8px 14px;font-size:12px;opacity:0;pointer-events:none;transition:.2s;max-width:min(560px,calc(100vw - 30px));text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:1100px){
+  .a-body,.impact-layout{grid-template-columns:1fr;height:auto;min-height:0}
+  .drawer,.impact-side{border:0;border-top:1px solid var(--line);max-height:none}
+  .a-main,.impact-main{padding-bottom:110px}
+  .a-main.graph-mode .graph-a{min-height:60vh}
+  .graph-a{min-height:60vh}
+  .impact-banner{flex-wrap:wrap;row-gap:4px}
+  .impact-banner .spacer{display:none}
+  .impact-banner button{margin-left:auto}
+  .topbar{height:auto;flex-wrap:wrap;padding:7px 10px;gap:8px;row-gap:6px}
+  .map-title{order:3;flex-basis:100%;gap:6px}
+  .map-title span{display:none}
+  .seg{order:2;margin-left:auto}
+  .top-counts{order:4;flex-basis:100%;gap:8px}
+  .top-meta{order:5}
+  .brand{min-width:0;flex:none}
+  .tb-sep{display:none}
+}
+@media(max-width:640px){
+  .graph-a-hint{display:none}
+  .cov-table th:nth-child(3),.cov-table td:nth-child(3){display:none}
+}
+</style>
+<script>
+(function(){
+  var pref = null;
+  try{ pref = new URLSearchParams(location.search).get("theme"); }catch(e){}
+  if (!pref){ try{ pref = localStorage.getItem("tb-theme"); }catch(e){} }
+  if (pref !== "light" && pref !== "dark" && pref !== "auto") pref = "auto";
+  var dark = pref === "dark" || (pref === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme-pref", pref);
+})();
+</script>
+<link rel="stylesheet" href="theme.css?v=144">
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" aria-live="polite"></div>
+<script src="data.js?v=144"></script>
+<script src="map1.js?v=144"></script>
+<script src="copy.js?v=144"></script>
+<script src="archive.js?v=144"></script>
+<script>
+(function(){
+  "use strict";
+  var DATASETS = {};
+  DATASETS[139] = window.PROTO_DATA;
+  if (window.PROTO_MAP1) DATASETS[1] = window.PROTO_MAP1;
+  var MAP_ORDER = Object.keys(DATASETS).map(Number).sort(function(a,b){ return a - b; });
+  var DEFAULT_MAP = DATASETS[139] ? 139 : MAP_ORDER[0];
+  var params = new URLSearchParams(location.search);
+  var startMap = Number(params.get("map"));
+  if (!DATASETS[startMap]) startMap = DEFAULT_MAP;
+  var D = DATASETS[startMap];
+  var state = {
+    mapId: startMap,
+    mode: params.get("mode") || "graph",
+    sel: params.get("sel") || ("decision:" + ((DATASETS[startMap].map || {}).rootDecision || "D-ROOT")),
+    drawer: params.get("drawer") || "closed",
+    top: params.get("top") === "1" ? "open" : "closed",
+    demo: new Set((params.get("demo") || "").split(",").filter(Boolean)),
+    filter: params.get("filter") || null,
+    processed: {},
+    viewA: null,
+    dragA: null,
+    pendingFocus: null,
+    modal: null,
+    toast: ""
+  };
+  var local = { decisions: [], premises: [], tickets: [], comments: {}, status: {} };
+  var toastTimer = null;
+
+  function allDecisions(){ return D.decisions.concat(local.decisions); }
+  function allPremises(){ return D.premises.concat(local.premises); }
+  function allTickets(){ return D.tickets.concat(local.tickets); }
+  function findDecision(id){ return allDecisions().filter(function(d){ return d.id === id; })[0] || null; }
+  function findTicket(id){ return allTickets().filter(function(t){ return String(t.id) === String(id); })[0] || null; }
+  function findPremise(id){ return allPremises().filter(function(p){ return p.id === id; })[0] || null; }
+  function copyOf(kind, id){ var c = window.PROTO_COPY && window.PROTO_COPY[kind]; return c ? c[id] : null; }
+  function decisionStatement(d){ var c = copyOf("decisions", d.id); return (c && c.statement) || d.statement; }
+  function ticketTitle(t){ var c = copyOf("tickets", t.id); return (c && c.title) || t.title; }
+  function ticketWhy(t){ var c = copyOf("tickets", t.id); return (c && c.why) || t.splitReason || ""; }
+  function decisionStatus(d){ return local.status[d.id] || d.status; }
+  function premisesOf(d){ return allPremises().filter(function(p){ return p.decision === d.id; }); }
+  function subDecisions(d){ return allDecisions().filter(function(x){ return x.base === d.id && !x.isBase; }); }
+  function producedBy(d){ return allTickets().filter(function(t){ return (t.produces || []).indexOf(d.id) >= 0; }); }
+  function ticketById(id){ return findTicket(id); }
+  function archiveOf(t){ var a = window.PROTO_ARCHIVE && window.PROTO_ARCHIVE.tickets; return a && t ? a[t.id] : null; }
+  function archiveDecisionOf(arch, id){ return arch && arch.decisions ? arch.decisions[id] : null; }
+  function findExcerpt(id){
+    var a = window.PROTO_ARCHIVE && window.PROTO_ARCHIVE.tickets;
+    if (!a) return null;
+    var keys = Object.keys(a);
+    for (var i = 0; i < keys.length; i++){
+      var list = a[keys[i]].excerpts || [];
+      for (var j = 0; j < list.length; j++){
+        if (list[j].id === id) return {ticket: findTicket(keys[i]), excerpt: list[j]};
+      }
+    }
+    return null;
+  }
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"})[c]; }); }
+  function mdLite(text){
+    var lines = String(text || "").split("\n");
+    var out = [], inList = false;
+    function inline(x){
+      return esc(x).replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+    }
+    function closeList(){ if (inList){ out.push("</ul>"); inList = false; } }
+    lines.forEach(function(raw){
+      var line = raw.replace(/\s+$/, "");
+      if (!line.trim()){ closeList(); return; }
+      if (/^#{1,6}\s+/.test(line)){ closeList(); out.push('<p class="md-h">' + inline(line.replace(/^#{1,6}\s+/, "")) + "</p>"); return; }
+      if (/^\s*[-*+]\s+/.test(line)){
+        if (!inList){ out.push('<ul class="md-list">'); inList = true; }
+        out.push("<li>" + inline(line.replace(/^\s*[-*+]\s+/, "")) + "</li>");
+        return;
+      }
+      closeList();
+      out.push("<p>" + inline(line) + "</p>");
+    });
+    closeList();
+    return out.join("");
+  }
+  function trunc(s, n){ s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+  function wrap(s, n){
+    s = String(s || ""); var out = [], line = "";
+    for (var i = 0; i < s.length; i++){
+      line += s[i];
+      if (line.length >= n){
+        var cut = -1, j;
+        for (j = line.length - 1; j >= Math.max(1, line.length - 7); j--){
+          if ("，；、。！？".indexOf(line[j]) >= 0){ cut = j + 1; break; }
+        }
+        if (cut < 0){
+          for (j = line.length - 1; j >= 1; j--){
+            if (line[j] === " "){ cut = j + 1; break; }
+          }
+        }
+        if (cut < 0){
+          for (j = line.length - 1; j >= Math.max(1, line.length - 3); j--){
+            if (line[j] === "/"){ cut = j + 1; break; }
+          }
+        }
+        if (cut < 0) cut = line.length;
+        out.push(line.slice(0, cut));
+        line = line.slice(cut);
+      }
+    }
+    if (line) out.push(line);
+    return out;
+  }
+  function wrapLines(s, n){
+    var out = [];
+    String(s || "").split("\n").forEach(function(part){
+      if (!part) return;
+      wrap(part, n).forEach(function(line){ out.push(line); });
+    });
+    return out;
+  }
+  function toneOf(d){
+    if (decisionStatus(d) === "superseded" || decisionStatus(d) === "void") return "void";
+    if (d.root && d.layer === "old") return "oldroot";
+    if (d.root) return "root";
+    var ps = premisesOf(d);
+    if (!ps.length) return "bare";
+    if (ps.some(function(p){ return p.state === "已破"; })) return "red";
+    if (ps.some(function(p){ return p.state === "未知" || p.state === "未验"; })) return "amber";
+    if (ps.every(function(p){ return p.state === "成立"; })) return "green";
+    return "amber";
+  }
+  function toneClass(t){ return {root:"accent", green:"green", amber:"amber", red:"red", bare:"gray", void:"void", oldroot:"gray"}[t] || "gray"; }
+  var STATUS_LABEL = {active:"生效中", superseded:"已被取代", void:"已作废", draft:"草稿", proposed:"待定"};
+  function statusLabel(s){ return STATUS_LABEL[s] || s; }
+  function stateChip(s){
+    var cls = s === "成立" ? "green" : s === "已破" ? "red" : s === "未知" ? "violet" : s === "未验" ? "gray"
+      : s === "active" ? "accent" : (s === "superseded" || s === "void") ? "gray" : "gray";
+    return '<span class="chip ' + cls + '">' + esc(statusLabel(s)) + "</span>";
+  }
+  function workDot(w){ return w === "已完成" ? "done" : w === "进行中" ? "now" : w === "卡住" ? "stuck" : ""; }
+  function typeLetter(t){ return {grilling:"G", research:"R", prototype:"P", task:"T"}[t] || "?"; }
+  function counts(){
+    var ts = ticketsOfMap(D.map.id);
+    var ds = allDecisions();
+    return {decisions: ds.filter(function(d){ return d.isBase; }).length, bases: ds.filter(function(d){ return d.isBase && !d.root; }).length, tickets: ts.length, open: ts.filter(function(t){ return t.state === "open"; }).length};
+  }
+  function switchMap(id){
+    id = Number(id);
+    if (!DATASETS[id] || id === state.mapId) return;
+    state.mapId = id;
+    D = DATASETS[id];
+    local = { decisions: [], premises: [], tickets: [], comments: {}, status: {} };
+    state.sel = "decision:" + (D.map.rootDecision || "D-ROOT");
+    state.mode = "graph";
+    state.filter = null;
+    state.demo = new Set();
+    state.processed = {};
+    state.drawer = "closed";
+    state.viewA = null;
+    render();
+  }
+  function setSel(kind, id){ state.sel = kind + ":" + id; render(); }
+  function parseSel(){
+    var parts = String(state.sel || "").split(":");
+    return {kind: parts[0], id: parts.slice(1).join(":")};
+  }
+  function signalByKey(k){ return D.signals.filter(function(s){ return s.key === k; })[0] || null; }
+  function signalLabel(s){ return s.key === "bare-decision" ? "没有记录前提" : s.label; }
+  function signalDemo(s){ return state.demo.has(s.key); }
+
+  /* ---------- 图 ---------- */
+  function rootId(){ return D.map.rootDecision || "D-ROOT"; }
+  function rootDecision(){ return findDecision(rootId()); }
+  function ticketsOfMap(n){ return allTickets().filter(function(t){ return t.mapId === n; }); }
+  function newBaseDecisions(){
+    return allDecisions().filter(function(d){ return d.isBase && d.layer === "new" && !d.root; }).sort(function(a,b){ return a.id.localeCompare(b.id); });
+  }
+  function sourceTicketForDecision(d){
+    if (!d) return null;
+    var ts = ticketsOfMap(D.map.id).filter(function(t){ return (t.produces || []).indexOf(d.id) >= 0; });
+    return ts[0] || null;
+  }
+  function lineChars(w, size, pad){ return Math.max(8, Math.floor((w - (pad || 24)) / size)); }
+  function ticketFromLabel(t){
+    var srcs = (t.derivedFrom || []).filter(function(s){ return s; });
+    if (!srcs.length) return "无来源决定";
+    if (srcs.length === 1 && srcs[0] === rootId()) return "从根决定拆出";
+    return "从 " + srcs.map(function(s){ return s === rootId() ? "根决定" : s; }).join("、") + " 拆出";
+  }
+  function ticketToLabel(t){
+    var ps = t.produces || [];
+    if (!ps.length) return "还没有产出决定";
+    if (ps.length <= 2) return "产出 " + ps.join("、");
+    return "产出 " + ps[0] + " 等 " + ps.length + " 条";
+  }
+  function ticketCoverLabel(t){
+    var cs = t.covers || [];
+    return cs.length ? "覆盖第 " + cs.join("、") + " 句" : "未接句";
+  }
+  function ticketCardH(t, w){
+    var tl = wrapLines(ticketTitle(t), lineChars(w, 11.5, 22)).length;
+    var why = ticketWhy(t);
+    var wl = why ? wrapLines("拆票理由：" + why, lineChars(w, 9.5, 24)).length : 0;
+    return Math.round(30 + tl * 15 + 8 + 28 + (why ? 6 + wl * 12.5 : 0) + 12);
+  }
+  function premiseBlockH(p, w){
+    var stmt = wrapLines(p.statement, lineChars(w, 10, 40)).length;
+    var ev = 0;
+    (p.evidence || []).forEach(function(e){ ev += wrapLines("证据：" + e, lineChars(w, 8.8, 40)).length; });
+    var judge = p.lastJudge
+      ? wrapLines("判定：" + p.lastJudge.by + " · " + p.lastJudge.at, lineChars(w, 8.8, 40)).length + wrapLines("理由：" + p.lastJudge.reason, lineChars(w, 8.8, 40)).length
+      : 1;
+    return Math.round(32 + stmt * 13 + ev * 11.5 + judge * 11.5 + 14);
+  }
+  function subRowH(x, w){
+    var lines = wrapLines(decisionStatement(x), lineChars(w, 10.5, 82)).length;
+    return Math.max(24, Math.round(lines * 13.5 + 8));
+  }
+  function decisionCardH(d, w){
+    var stmt = wrapLines(decisionStatement(d), lineChars(w, 12.5, 24)).length;
+    var h = 44 + stmt * 17.5 + 20;
+    premisesOf(d).forEach(function(p){ h += premiseBlockH(p, w); });
+    var subs = subDecisions(d);
+    if (subs.length){
+      h += 28;
+      subs.forEach(function(x){ h += subRowH(x, w); });
+    }
+    return Math.round(h + 12);
+  }
+  var WORLD_A = {w:1140,h:700};
+  var LAST_LAYOUT_A = null;
+  var MAX_COLS_A = 13;  /* 13 张以内单行；更多按网格换行 */
+  function layoutA(){
+    var pos = {}, gap = 24, margin = 30;
+    var pairs = [];
+    newBaseDecisions().forEach(function(d){
+      var t = sourceTicketForDecision(d);
+      if (t) pairs.push({d:d,t:t});
+    });
+    var pairIds = {};
+    pairs.forEach(function(p){ pairIds[p.t.id] = p; });
+    var all = ticketsOfMap(D.map.id).slice().sort(function(a,b){ return Number(a.id) - Number(b.id); });
+    var rootW = 560, rootY = 30;
+    var rootLines = wrapLines(decisionStatement(rootDecision()), lineChars(rootW, 14, 24)).length;
+    var rootH = Math.round(80 + rootLines * 20);
+    pos[rootId()] = {x: margin, y: rootY, w: rootW, h: rootH};
+    var n = all.length;
+    var cols = n <= MAX_COLS_A ? n : Math.min(n, Math.ceil(Math.sqrt(n * 1.6)));
+    var rows = Math.ceil(n / Math.max(1, cols));
+    var topY = rootY + rootH + 76;
+    var rowTickets = [], rowOf = {}, railY = [];
+    var L;
+
+    if (rows <= 1){
+      /* 单行：票按内容宽度排，横轴一条母线 */
+      var x = margin, maxTicketH = 112;
+      all.forEach(function(t){
+        var w = pairIds[t.id] ? 348 : 316;
+        pos["ticket:" + t.id] = {x:x, y:0, w:w, h:ticketCardH(t, w)};
+        maxTicketH = Math.max(maxTicketH, pos["ticket:" + t.id].h);
+        rowOf[t.id] = 0;
+        x += w + gap;
+      });
+      rowTickets = [all];
+      var totalW = x - gap + margin;
+      all.forEach(function(t){ pos["ticket:" + t.id].y = topY; });
+      var decisionTop = topY + maxTicketH + 56, maxBottom = decisionTop;
+      pairs.forEach(function(pair){
+        var tp = pos["ticket:" + pair.t.id];
+        var h = decisionCardH(pair.d, tp.w);
+        pos[pair.d.id] = {x:tp.x, y:decisionTop, w:tp.w, h:h};
+        maxBottom = Math.max(maxBottom, decisionTop + h);
+      });
+      var worldW1 = Math.max(WORLD_A.w, totalW), worldH1 = Math.max(720, maxBottom + 60);
+      L = {pos:pos, main:pairs, open:all.filter(function(t){ return t.state === "open"; }), all:all, worldW:worldW1, worldH:worldH1, ticketY:topY, rows:1, rowTickets:[all], rowOf:rowOf, railY:[topY - 36]};
+    } else {
+      /* 树状分层：根决定 → 票 → 决定 → 票 → …，每层横向排开、不折行。
+         每个节点只有一个主父节点，父子边落在相邻两层之间；多来源票的次要来源
+         若和主来源同层，画短虚线；跨层的两处只在票卡上用小字标出，不拉长线。 */
+      var decs = newBaseDecisions();
+      var decById = {};
+      decs.forEach(function(d){ decById[d.id] = d; });
+      var ticketOfDecision = {};
+      pairs.forEach(function(p){ ticketOfDecision[p.d.id] = p.t; });
+
+      /* 最长路径深度用来选主父：多来源时取最深的那条，树才能往下长 */
+      var incoming = {};
+      decs.forEach(function(d){ incoming[d.id] = []; });
+      all.forEach(function(t){
+        (t.produces || []).forEach(function(dst){
+          if (!incoming[dst]) return;
+          (t.derivedFrom || []).forEach(function(src){ incoming[dst].push({t:t, s:src}); });
+        });
+      });
+      var depthMemo = {};
+      function dagDepth(id){
+        if (id === rootId()) return 0;
+        if (depthMemo[id] !== undefined) return depthMemo[id];
+        var list = incoming[id] || [], best = 0;
+        list.forEach(function(e){
+          var sd = e.s === rootId() ? 0 : dagDepth(e.s);
+          best = Math.max(best, sd + 1);
+        });
+        depthMemo[id] = best;
+        return best;
+      }
+      decs.forEach(function(d){ dagDepth(d.id); });
+
+      var primary = {}, childTickets = {}, childDecisions = {};
+      childTickets[rootId()] = [];
+      all.forEach(function(t){
+        var srcs = (t.derivedFrom || []).filter(function(s){ return s === rootId() || decById[s]; });
+        if (!srcs.length) srcs = [rootId()];
+        var best = srcs[0];
+        srcs.forEach(function(s){ if (dagDepth(s) > dagDepth(best)) best = s; });
+        primary[t.id] = best;
+        (childTickets[best] = childTickets[best] || []).push(t);
+        (t.produces || []).forEach(function(d){
+          (childDecisions[t.id] = childDecisions[t.id] || []).push(d);
+        });
+      });
+      Object.keys(childTickets).forEach(function(k){
+        childTickets[k].sort(function(a,b){ return Number(a.id) - Number(b.id); });
+      });
+
+      /* 层级：根 0，票奇数层，决定偶数层 */
+      var levelOf = {};
+      function lvl(key){
+        if (levelOf[key] !== undefined) return levelOf[key];
+        var v;
+        if (key === "decision:" + rootId()) v = 0;
+        else if (key.indexOf("ticket:") === 0){
+          v = lvl("decision:" + primary[key.slice(7)]) + 1;
+        } else {
+          var st = ticketOfDecision[key.slice(9)];
+          v = st ? lvl("ticket:" + st.id) + 1 : 1;
+        }
+        levelOf[key] = v;
+        return v;
+      }
+      decs.forEach(function(d){ lvl("decision:" + d.id); });
+      all.forEach(function(t){ lvl("ticket:" + t.id); });
+
+      var cardWOf = function(key){
+        if (key === "decision:" + rootId()) return rootW;
+        if (key.indexOf("ticket:") === 0){
+          var id = key.slice(7);
+          return (childDecisions[id] && childDecisions[id].length) ? 348 : 316;
+        }
+        return 348;
+      };
+      var kidsOf = function(key){
+        if (key === "decision:" + rootId()) return (childTickets[rootId()] || []).map(function(t){ return "ticket:" + t.id; });
+        if (key.indexOf("ticket:") === 0){
+          var id = key.slice(7);
+          return (childDecisions[id] || []).map(function(d){ return "decision:" + d; });
+        }
+        return (childTickets[key.slice(9)] || []).map(function(t){ return "ticket:" + t.id; });
+      };
+
+      /* 卡片高度与每层行高 */
+      var cardH = {};
+      all.forEach(function(t){
+        var key = "ticket:" + t.id;
+        cardH[key] = ticketCardH(t, cardWOf(key));
+      });
+      pairs.forEach(function(p){ cardH["decision:" + p.d.id] = decisionCardH(p.d, 348); });
+      cardH["decision:" + rootId()] = rootH;
+
+      var maxLevel = 0, levelMaxH = {};
+      Object.keys(cardH).forEach(function(k){
+        var l = lvl(k);
+        maxLevel = Math.max(maxLevel, l);
+        levelMaxH[l] = Math.max(levelMaxH[l] || 0, cardH[k]);
+      });
+      var levelY = {}, y = rootY;
+      for (var l = 0; l <= maxLevel; l++){
+        levelY[l] = y;
+        y += (levelMaxH[l] || 0) + 64;
+      }
+
+      /* 子树宽度 + 自上而下摆放：父亲在子块上方居中 */
+      var blockW = {};
+      function subW(key){
+        if (blockW[key] !== undefined) return blockW[key];
+        var kids = kidsOf(key), sum = 0;
+        kids.forEach(function(k){ sum += subW(k); });
+        if (kids.length) sum += gap * (kids.length - 1);
+        blockW[key] = Math.max(cardWOf(key), sum);
+        return blockW[key];
+      }
+      subW("decision:" + rootId());
+      var posT = {};
+      function place(key, left){
+        var w = subW(key), cw = cardWOf(key), kids = kidsOf(key);
+        var sum = 0;
+        kids.forEach(function(k){ sum += subW(k); });
+        if (kids.length) sum += gap * (kids.length - 1);
+        var cursor = left + (w - sum) / 2, kidX = {};
+        kids.forEach(function(k){ kidX[k] = cursor; cursor += subW(k) + gap; });
+        var px = left + (w - cw) / 2;
+        if (kids.length && key !== "decision:" + rootId()){
+          /* 父卡对齐第一张子票，主父边落成层间短竖线；分歧的子票才走斜线 */
+          var mk = kids[0];
+          px = kidX[mk] + (subW(mk) - cardWOf(mk)) / 2;
+          px = Math.max(left, Math.min(left + w - cw, px));
+        }
+        posT[key] = {x:px, y:levelY[lvl(key)], w:cw, h:cardH[key]};
+        if (!kids.length) return;
+        kids.forEach(function(k){ place(k, kidX[k]); });
+      }
+      place("decision:" + rootId(), margin);
+
+      Object.keys(posT).forEach(function(k){
+        if (k.indexOf("ticket:") === 0) pos[k] = posT[k];
+      });
+      decs.forEach(function(d){ pos[d.id] = posT["decision:" + d.id]; });
+      pos[rootId()] = posT["decision:" + rootId()];
+
+      var rootTickets = childTickets[rootId()] || [];
+      all.forEach(function(t){
+        rowOf[t.id] = primary[t.id] === rootId() ? 0 : lvl("ticket:" + t.id);
+      });
+      var totalW = margin * 2 + subW("decision:" + rootId());
+      var worldW2 = Math.max(WORLD_A.w, totalW);
+      var worldH2 = Math.max(720, y - 64 + 60);
+      L = {pos:pos, main:pairs, open:all.filter(function(t){ return t.state === "open"; }), all:all, worldW:worldW2, worldH:worldH2, ticketY:levelY[1], rows:maxLevel, rowTickets:[rootTickets], rowOf:rowOf, railY:[levelY[1] - 24], pyramid:true, tree:true, primary:primary, levelOf:levelOf, levels:maxLevel};
+    }
+    LAST_LAYOUT_A = L;
+    return L;
+  }
+  function selKeyA(){
+    var s = parseSel();
+    if (s.kind === "decision" || s.kind === "ticket"){
+      if (s.kind === "decision"){
+        var d = findDecision(s.id);
+        if (d && !d.isBase && d.base) return "decision:" + d.base;
+      }
+      return s.kind + ":" + s.id;
+    }
+    return null;
+  }
+  function impactedKeyA(key){
+    if (key === "decision:" + rootId()) return false;
+    if (key.indexOf("decision:") === 0){
+      var id = key.slice(9), d = findDecision(id);
+      if (d && !d.isBase && d.base) id = d.base;
+      return D.impact.decisions.indexOf(id) >= 0 || !!D.impact.mainDecision && id === D.impact.mainDecision;
+    }
+    if (key.indexOf("ticket:") === 0) return D.impact.tickets.indexOf(Number(key.slice(7))) >= 0;
+    return false;
+  }
+  function selSetA(sel){
+    var set = {}, kind = sel.split(":")[0], id = sel.slice(kind.length + 1);
+    set[sel] = true;
+    if (kind === "decision"){
+      var d = findDecision(id), t = sourceTicketForDecision(d);
+      if (d && !d.isBase && d.base) set["decision:" + d.base] = true;
+      if (t) set["ticket:" + t.id] = true;
+      if (d && d.root && LAST_LAYOUT_A){
+        LAST_LAYOUT_A.main.forEach(function(pair){ set["ticket:" + pair.t.id] = true; });
+        LAST_LAYOUT_A.open.forEach(function(x){ set["ticket:" + x.id] = true; });
+      }
+    } else if (kind === "ticket"){
+      var tk = findTicket(id);
+      if (tk){
+        (tk.derivedFrom || []).forEach(function(x){ set["decision:" + x] = true; });
+        (tk.produces || []).forEach(function(x){ set["decision:" + x] = true; });
+        if (tk.state === "open") set["decision:" + rootId()] = true;
+      }
+    }
+    return set;
+  }
+  function selEdgePairsA(sel){
+    var pairs = [], kind = sel.split(":")[0], id = sel.slice(kind.length + 1);
+    if (kind === "decision"){
+      var d = findDecision(id);
+      if (d && !d.isBase && d.base) id = d.base;
+      if (d && d.root){
+        if (LAST_LAYOUT_A) LAST_LAYOUT_A.main.forEach(function(pair){ pairs.push(["decision:" + rootId(), "ticket:" + pair.t.id]); pairs.push(["ticket:" + pair.t.id, "decision:" + pair.d.id]); });
+      } else {
+        var t = sourceTicketForDecision(d);
+        if (t){
+          pairs.push(["decision:" + rootId(), "ticket:" + t.id]);
+          pairs.push(["ticket:" + t.id, "decision:" + id]);
+        }
+      }
+    } else if (kind === "ticket"){
+      var tk = findTicket(id);
+      if (tk){
+        (tk.derivedFrom || []).forEach(function(dec){ pairs.push(["decision:" + dec, "ticket:" + id]); });
+        (tk.produces || []).forEach(function(dec){ pairs.push(["ticket:" + id, "decision:" + dec]); });
+      }
+    }
+    return pairs;
+  }
+  function edgeClsA(from, to){
+    var cls = "";
+    if (state.mode === "impact") cls += (impactedKeyA(from) || impactedKeyA(to)) ? " impact" : " dim";
+    var sel = selKeyA();
+    if (sel && sel !== "decision:" + rootId()){
+      var hit = selEdgePairsA(sel).some(function(p){ return p[0] === from && p[1] === to; });
+      cls += hit ? " sel" : " dim";
+    }
+    return cls;
+  }
+  function nodeImpactClsA(key){
+    if (state.mode !== "impact") return "";
+    return impactedKeyA(key) ? " impact" : " dim";
+  }
+  function nodeSelClsA(key){ return selKeyA() === key ? " sel" : ""; }
+  function decisionNodeA(d, pos){
+    var p = pos[d.id]; if (!p) return "";
+    var tone = toneOf(d), ps = premisesOf(d), subs = subDecisions(d), root = !!d.root;
+    var lines = wrapLines(decisionStatement(d), lineChars(p.w, root ? 14 : 12.5, 28));
+    var lineH = root ? 20 : 17;
+    var tspans = lines.map(function(line, i){ return '<tspan x="14" dy="' + (i === 0 ? 0 : lineH) + '">' + esc(line) + "</tspan>"; }).join("");
+    var meta = root
+      ? "根决定 · " + (D.map.fragments || []).length + " 句拆句 · " + ticketsOfMap(D.map.id).length + " 张票 · " + ticketsOfMap(D.map.id).filter(function(t){ return t.state === "open"; }).length + " 张开放"
+      : (ps.length ? ps.length + " 条前提" : "没有记录前提");
+    var badge = root ? "" : (decisionStatus(d) === "superseded" ? "已被取代" : decisionStatus(d) === "void" ? "已作废" : ps.length ? (tone === "red" ? "前提已破" : tone === "green" ? "前提全成立" : "前提未验 / 未知") : "");
+    var cls = "node-a " + tone + (root ? " root" : "") + nodeImpactClsA("decision:" + d.id) + nodeSelClsA("decision:" + d.id);
+    return '<g class="' + cls + '" data-act="select" data-val="decision:' + esc(d.id) + '" transform="translate(' + p.x + ',' + p.y + ')" title="' + esc(decisionStatement(d)) + '">' +
+      '<rect class="nrect-a" width="' + p.w + '" height="' + p.h + '" rx="12"></rect>' +
+      '<text class="na-id" x="14" y="22">' + esc(d.id) + "</text>" +
+      '<circle class="dot ' + toneClass(tone) + '" cx="' + (p.w - 16) + '" cy="18" r="5"></circle>' +
+      '<text class="na-stmt" x="14" y="50">' + tspans + "</text>" +
+      '<text class="na-meta" x="14" y="' + (p.h - 14) + '">' + esc(meta) + "</text>" +
+      (badge ? '<text class="na-badge" x="' + (p.w - 14) + '" y="' + (p.h - 14) + '" text-anchor="end">' + esc(badge) + "</text>" : "") +
+      "</g>";
+  }
+  function ticketNodeA(t, pos){
+    var key = "ticket:" + t.id, p = pos[key]; if (!p) return "";
+    var type = t.type || "task", closed = t.state === "closed";
+    var typeW = Math.max(34, type.length * 6.4 + 12);
+    var work = t.work || "未领取";
+    var workCls = work === "已完成" ? "green" : work === "进行中" ? "accent" : work === "卡住" ? "amber" : "gray";
+    var tlines = wrapLines(ticketTitle(t), lineChars(p.w, 11.5, 22));
+    var titleSvg = tlines.map(function(line, i){ return '<tspan x="12" dy="' + (i === 0 ? 0 : 15) + '">' + esc(line) + "</tspan>"; }).join("");
+    var yRel = 42 + (tlines.length - 1) * 15 + 20;
+    var why = ticketWhy(t);
+    var wlines = why ? wrapLines("拆票理由：" + why, lineChars(p.w, 9.5, 24)) : [];
+    var whySvg = wlines.map(function(line, i){ return '<tspan x="12" dy="' + (i === 0 ? 0 : 12.5) + '">' + esc(line) + "</tspan>"; }).join("");
+    var toCls = (t.produces || []).length ? "tn-to" : "tn-to empty";
+    var cls = "tnode-a " + (closed ? "closed" : "open") + nodeImpactClsA(key) + nodeSelClsA(key);
+    return '<g class="' + cls + '" data-act="select" data-val="ticket:' + t.id + '" transform="translate(' + p.x + ',' + p.y + ')" title="' + esc(type + " · " + work + " · " + ticketTitle(t) + " · " + ticketWhy(t)) + '">' +
+      '<rect class="trect" width="' + p.w + '" height="' + p.h + '" rx="10"></rect>' +
+      '<rect class="tbar ' + (closed ? "done" : "wait") + '" x="1" y="7" width="3.5" height="' + (p.h - 14) + '" rx="1.75"></rect>' +
+      '<rect class="type-pill type-' + type + '" x="12" y="8" width="' + typeW + '" height="17" rx="5"></rect>' +
+      '<text class="tn-type type-' + type + '" x="' + (12 + typeW / 2) + '" y="20" text-anchor="middle">' + esc(type) + "</text>" +
+      '<text class="tn-id" x="' + (12 + typeW + 7) + '" y="20">#' + esc(t.id) + "</text>" +
+      '<text class="tn-meta" x="' + (p.w - 20) + '" y="20" text-anchor="end">' + esc(work) + "</text>" +
+      '<circle class="dot ' + workCls + '" cx="' + (p.w - 9) + '" cy="17" r="3.5"></circle>' +
+      '<text class="tn-title" x="12" y="42">' + titleSvg + "</text>" +
+      '<circle class="rel-dot from" cx="15" cy="' + (yRel - 3.5) + '" r="2.6"></circle>' +
+      '<text class="tn-from" x="23" y="' + yRel + '">' + esc(ticketFromLabel(t)) + "</text>" +
+      '<circle class="rel-dot to" cx="15" cy="' + (yRel + 9.5) + '" r="2.6"></circle>' +
+      '<text class="' + toCls + '" x="23" y="' + (yRel + 13) + '">' + esc(ticketToLabel(t)) + "</text>" +
+      '<text class="tn-cover" x="' + (p.w - 12) + '" y="' + (yRel + 13) + '" text-anchor="end">' + esc(ticketCoverLabel(t)) + "</text>" +
+      (whySvg ? '<text class="tn-why" x="12" y="' + (yRel + 29) + '">' + whySvg + "</text>" : "") +
+      "</g>";
+  }
+  function premiseBlockA(p, w, y){
+    var chars = lineChars(w, 10, 40), evChars = lineChars(w, 8.8, 40);
+    var out = '<g class="pr-a" transform="translate(0,' + y + ')">' +
+      '<line class="dec-sep" x1="12" x2="' + (w - 12) + '" y1="0" y2="0"></line>' +
+      '<text class="pr-a-label" x="12" y="16">依赖前提 ' + esc(p.id) + " · " + esc(p.state) + "</text>";
+    var yy = 32;
+    wrapLines(p.statement, chars).forEach(function(line){ out += '<text class="pr-a-stmt" x="12" y="' + yy + '">' + esc(line) + "</text>"; yy += 13; });
+    (p.evidence || []).forEach(function(e){
+      wrapLines("证据：" + e, evChars).forEach(function(line){ out += '<text class="pr-a-ev" x="12" y="' + yy + '">' + esc(line) + "</text>"; yy += 11.5; });
+    });
+    if (p.lastJudge){
+      wrapLines("判定：" + p.lastJudge.by + " · " + p.lastJudge.at, evChars).forEach(function(line){ out += '<text class="pr-a-judge" x="12" y="' + yy + '">' + esc(line) + "</text>"; yy += 11.5; });
+      wrapLines("理由：" + p.lastJudge.reason, evChars).forEach(function(line){ out += '<text class="pr-a-ev" x="12" y="' + yy + '">' + esc(line) + "</text>"; yy += 11.5; });
+    } else {
+      out += '<text class="pr-a-ev" x="12" y="' + yy + '">还没判过</text>';
+    }
+    return out + "</g>";
+  }
+  function decisionGroupA(d, pos){
+    var p = pos[d.id]; if (!p) return "";
+    var tone = toneOf(d), ps = premisesOf(d), subs = subDecisions(d);
+    var lines = wrapLines(decisionStatement(d), lineChars(p.w, 12.5, 24));
+    var tspans = lines.map(function(line, i){ return '<tspan x="12" dy="' + (i === 0 ? 0 : 17.5) + '">' + esc(line) + "</tspan>"; }).join("");
+    var metaY = Math.round(44 + lines.length * 17.5 + 14);
+    var meta = "由 #" + (d.sourceTicket || "?") + " 产出 · " + (ps.length ? ps.length + " 条前提" : "没有记录前提");
+    var badge = d.partlySuperseded ? "部分被取代" : decisionStatus(d) === "superseded" ? "已被取代" : decisionStatus(d) === "void" ? "已作废" : ps.length ? (tone === "red" ? "前提已破" : tone === "green" ? "前提全成立" : "前提未验 / 未知") : "";
+    var cls = "node-a dec-group-a " + tone + nodeImpactClsA("decision:" + d.id) + nodeSelClsA("decision:" + d.id);
+    var out = '<g class="' + cls + '" data-act="select" data-val="decision:' + esc(d.id) + '" transform="translate(' + p.x + ',' + p.y + ')" title="' + esc(decisionStatement(d)) + '">' +
+      '<rect class="nrect-a" width="' + p.w + '" height="' + p.h + '" rx="11"></rect>' +
+      '<text class="na-id" x="12" y="20">' + esc(d.id) + "</text>" +
+      '<circle class="dot ' + toneClass(tone) + '" cx="' + (p.w - 14) + '" cy="16" r="4.5"></circle>' +
+      '<text class="na-stmt" x="12" y="44">' + tspans + "</text>" +
+      '<text class="na-meta" x="12" y="' + metaY + '">' + esc(meta) + "</text>" +
+      (badge ? '<text class="na-badge" x="' + (p.w - 12) + '" y="' + metaY + '" text-anchor="end">' + esc(badge) + "</text>" : "");
+    var cursor = metaY + 8;
+    ps.forEach(function(prem){ out += premiseBlockA(prem, p.w, cursor); cursor += premiseBlockH(prem, p.w); });
+    if (subs.length){
+      out += '<line class="dec-sep" x1="12" x2="' + (p.w - 12) + '" y1="' + cursor + '" y2="' + cursor + '"></line>';
+      cursor += 18;
+      out += '<text class="dec-sub-label" x="12" y="' + cursor + '">同一张票产出的另外 ' + subs.length + " 条决定</text>";
+      cursor += 10;
+      subs.forEach(function(x){
+        var h = subRowH(x, p.w);
+        var subLines = wrapLines(decisionStatement(x), lineChars(p.w, 10.5, 82));
+        out += '<g class="dec-extra-row" data-act="select" data-val="decision:' + esc(x.id) + '" transform="translate(0,' + cursor + ')">' +
+          '<rect x="6" y="2" width="' + (p.w - 12) + '" height="' + (h - 2) + '" rx="5"></rect>' +
+          '<circle class="dot ' + toneClass(toneOf(x)) + '" cx="60" cy="12" r="3"></circle>' +
+          '<text class="ex-id" x="12" y="16">' + esc(x.id) + "</text>" +
+          subLines.map(function(line, i){ return '<text class="dec-sub-stmt" x="70" y="' + (16 + i * 13.5) + '">' + esc(line) + "</text>"; }).join("") +
+          "</g>";
+        cursor += h;
+      });
+    }
+    return out + "</g>";
+  }
+  function busA(L){
+    var all = L.all; if (!all.length) return {trunk:"",branches:"",labels:""};
+    var rp = L.pos[rootId()], start = {x: rp.x + rp.w / 2, y: rp.y + rp.h};
+    var sel = selKeyA(), rootSel = sel === "decision:" + rootId();
+    var anyImpact = all.some(function(t){ return impactedKeyA("ticket:" + t.id); });
+    var trunkCls = "bus-a";
+    if (state.mode === "impact") trunkCls += anyImpact ? " impact" : " dim";
+    if (sel) trunkCls += rootSel ? " sel" : " dim";
+
+    /* 每行一条横母线；行首竖干从根决定下来，逐行串到行尾 */
+    var spines = [], rails = [], labels = [];
+    var spineX = null;
+    var busRows = L.rowTickets || [all];
+    var busCount = L.pyramid ? all.filter(function(t){ return (t.derivedFrom || []).indexOf(rootId()) >= 0; }).length : all.length;
+    busRows.forEach(function(row, r){
+      if (!row.length || L.railY[r] == null) return;
+      var first = L.pos["ticket:" + row[0].id], last = L.pos["ticket:" + row[row.length - 1].id];
+      var x1 = first.x + first.w / 2, x2 = last.x + last.w / 2, busY = L.railY[r];
+      if (spineX === null) spineX = x1;
+      rails.push("M " + x1 + " " + busY + " H " + x2);
+      spines.push("M " + spineX + " " + (r === 0 ? start.y : L.railY[r - 1]) + " V " + busY);
+      if (r === 0) labels.push('<text class="bus-label-a" x="' + (L.pyramid ? start.x + 8 : x1 + 6) + '" y="' + (busY - 7) + '">' + esc(rootId()) + " 拆出 " + busCount + " 张票" + (!L.pyramid && L.rows > 1 ? " · " + L.rows + " 行" : "") + "</text>");
+    });
+    var trunkD = spines.concat(rails).join(" ");
+    var stubs = all.filter(function(t){
+      if (L.railY[L.rowOf[t.id]] == null) return false;
+      if (L.pyramid && (t.derivedFrom || []).indexOf(rootId()) < 0) return false;
+      return true;
+    }).map(function(t){
+      var p = L.pos["ticket:" + t.id], cx = p.x + p.w / 2, busY = L.railY[L.rowOf[t.id]];
+      var cls = t.state === "closed" ? "branch-a done" : "branch-a";
+      if (state.mode === "impact") cls += impactedKeyA("ticket:" + t.id) ? " impact" : " dim";
+      if (sel){
+        if (rootSel) cls += " sel";
+        else cls += selSetA(sel)["ticket:" + t.id] ? " sel" : " dim";
+      }
+      return '<path class="' + cls + '" data-branch-a="' + t.id + '" d="M ' + cx + " " + busY + " V " + p.y + '"></path>';
+    }).join("");
+    return {trunk: '<g class="' + trunkCls + '"><path d="' + trunkD + '"></path>' + labels.join("") + "</g>", branches: stubs};
+  }
+  function graphA(){
+    var L = layoutA(), pos = L.pos, root = rootDecision(), edges = [];
+    L.main.forEach(function(pair){
+      var tp = pos["ticket:" + pair.t.id], dp = pos[pair.d.id];
+      var c = {x: tp.x + tp.w / 2, y: tp.y + tp.h}, e = {x: dp.x + dp.w / 2, y: dp.y};
+      edges.push('<g class="edge-a strong' + edgeClsA("ticket:" + pair.t.id, "decision:" + pair.d.id) + '"><path d="M ' + c.x + " " + c.y + " L " + e.x + " " + e.y + '" marker-end="url(#arrowA)"></path></g>');
+    });
+    var kidsByDec = {};
+    L.all.forEach(function(t){
+      var dec = L.primary && L.primary[t.id];
+      if (!dec || dec === rootId()) return;
+      (kidsByDec[dec] = kidsByDec[dec] || []).push(t);
+    });
+    Object.keys(kidsByDec).forEach(function(k){
+      kidsByDec[k].sort(function(a,b){ return Number(a.id) - Number(b.id); });
+    });
+    L.all.forEach(function(t){
+      var dec = L.primary && L.primary[t.id];
+      if (!dec || dec === rootId()) return;
+      var dp = pos[dec], tp = pos["ticket:" + t.id];
+      if (!dp || !tp) return;
+      var sibs = kidsByDec[dec] || [t], idx = sibs.indexOf(t), n = Math.max(1, sibs.length);
+      var cls = "edge-a derive" + edgeClsA("decision:" + dec, "ticket:" + t.id);
+      var sx = dp.x + dp.w * ((idx + 1) / (n + 1)), sy = dp.y + dp.h, ex = tp.x + tp.w / 2, ey = tp.y;
+      edges.push('<g class="' + cls + '"><path d="M ' + sx + ' ' + sy + ' L ' + ex + ' ' + ey + '" marker-end="url(#arrowA)"></path></g>');
+    });
+    var bus = busA(L), nodes = [];
+    if (root) nodes.push(decisionNodeA(root, pos));
+    L.all.forEach(function(t){
+      var pair = L.main.filter(function(p){ return p.t.id === t.id; })[0];
+      nodes.push(ticketNodeA(t, pos));
+      if (pair) nodes.push(decisionGroupA(pair.d, pos));
+    });
+    var v = state.viewA || {x:0,y:0,k:1};
+    return '<div class="graph-a" data-graph-a="1"><svg class="graph-a-svg" role="img" aria-label="决策图">' +
+      '<defs><marker id="arrowA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--arrow)"></path></marker></defs>' +
+      '<g id="graphA-world" transform="translate(' + v.x + ',' + v.y + ') scale(' + v.k + ')">' +
+      '<g class="edges-a">' + edges.join("") + bus.trunk + bus.branches + "</g>" +
+      '<g class="nodes-a">' + nodes.join("") + "</g></g></svg>" +
+      '<div class="graph-a-tools"><button data-act="zoomA" data-val="out" aria-label="缩小">−</button><span class="zoom-pct">' + Math.round(v.k * 100) + '%</span><button data-act="zoomA" data-val="in" aria-label="放大">＋</button><button data-act="zoomA" data-val="fit">适应</button></div>' +
+      '<div class="graph-a-hint">' + (L.pyramid
+        ? '拖动空白平移 · 捏合缩放 · 树状分层：根 → 票 → 决定 → 票 → 决定，往下加层 · 卡片写明「从哪条决定拆出」「产出哪条决定」；紫虚线只连主来源，其余来源列在卡上'
+        : '两指滑动平移 · 捏合缩放 · 拖动空白也能平移 · 节点按树排布，不能拖动 · ' + L.all.length + ' 张票横向排开，往右拖看全部') + '</div></div>';
+  }
+  function legendA(){
+    return '<div class="graph-legend"><span><i class="legend-dot accent"></i>根决定</span><span><i class="legend-dot green"></i>前提全成立</span><span><i class="legend-dot amber"></i>有前提未验 / 未知</span><span><i class="legend-dot red"></i>至少一条前提已破</span><span><i class="legend-dot gray"></i>没有记录前提</span><span><i class="legend-dot void"></i>已被取代</span><span><i class="legend-line solid"></i>票产出决定</span><span><i class="legend-line"></i>上游决定拆出票</span><span style="margin-left:auto">票卡：紫点 = 从哪条决定拆出（全部来源都列出）· 蓝点 = 产出哪条决定 · 灰字 = 覆盖第几句；决定卡：由哪张票产出、有没有前提</span></div>';
+  }
+  function worldBoundsA(L){
+    var minX = 0, minY = 0, maxX = L.worldW || WORLD_A.w, maxY = L.worldH;
+    Object.keys(L.pos).forEach(function(k){
+      var p = L.pos[k];
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x + p.w); maxY = Math.max(maxY, p.y + p.h);
+    });
+    return {x:minX, y:minY, w:maxX - minX, h:maxY - minY};
+  }
+  function applyViewA(){
+    var g = document.getElementById("graphA-world");
+    if (g && state.viewA) g.setAttribute("transform", "translate(" + state.viewA.x + "," + state.viewA.y + ") scale(" + state.viewA.k + ")");
+  }
+  function setZoomLabelA(){
+    var pct = document.querySelector(".graph-a .zoom-pct");
+    if (pct && state.viewA) pct.textContent = Math.round(state.viewA.k * 100) + "%";
+  }
+  function initialViewA(){
+    var wrap = document.querySelector(".graph-a"); if (!wrap) return;
+    var rect = wrap.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+    var L = LAST_LAYOUT_A || layoutA(), b = worldBoundsA(L), pad = 22;
+    if (L.pyramid){
+      /* 打开先看根附近的细节；整张横铺图按「适应」看全 */
+      var kf = Math.min(1, Math.max(0.72, (rect.height - pad * 2) / b.h));
+      var rp0 = L.pos[rootId()] || {x:0, w:0};
+      state.viewA = {k:kf, x:rect.width / 2 - (rp0.x + rp0.w / 2) * kf, y:pad - b.y * kf};
+    } else {
+      var kFit = Math.min(1, (rect.height - pad * 2) / b.h);
+      var k = Math.min(1, Math.max(0.9, kFit));
+      state.viewA = {k:k, x:pad - b.x * k, y:pad - b.y * k};
+    }
+    applyViewA(); setZoomLabelA();
+  }
+  function fitViewA(){
+    var wrap = document.querySelector(".graph-a"); if (!wrap) return;
+    var rect = wrap.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+    var L = LAST_LAYOUT_A || layoutA(), b = worldBoundsA(L), pad = 26;
+    var k = Math.min(1.05, (rect.width - pad * 2) / b.w, (rect.height - pad * 2) / b.h);
+    k = Math.max(0.05, k);
+    state.viewA = {k:k, x:(rect.width - b.w * k) / 2 - b.x * k, y:(rect.height - b.h * k) / 2 - b.y * k};
+    applyViewA(); setZoomLabelA();
+  }
+  function zoomViewA(factor){
+    var wrap = document.querySelector(".graph-a"); if (!wrap) return;
+    if (!state.viewA) fitViewA();
+    if (!state.viewA) return;
+    var rect = wrap.getBoundingClientRect(), cx = rect.width / 2, cy = rect.height / 2;
+    var k = Math.min(2.4, Math.max(0.05, state.viewA.k * factor));
+    var wx = (cx - state.viewA.x) / state.viewA.k, wy = (cy - state.viewA.y) / state.viewA.k;
+    state.viewA = {k:k, x:cx - wx * k, y:cy - wy * k};
+    applyViewA(); setZoomLabelA();
+  }
+
+  /* ---------- 覆盖表 ---------- */
+  function coverageView(compact){
+    var items = D.coverage.map(function(r){
+      var gap = r.status === "缺口" || (r.frag === 5 && state.demo.has("coverage-gap"));
+      var status = gap ? "缺口" : r.status;
+      var cls = status === "已落" ? "done" : status === "进行中" ? "doing" : status === "缺口" ? "gap" : "void";
+      return {frag: r.frag, text: r.text, tickets: r.tickets, status: status, cls: cls, gap: gap};
+    });
+    var done = D.coverage.filter(function(r){ return r.status === "已落"; }).length;
+    var gap = items.filter(function(r){ return r.gap; }).length;
+    var total = D.coverage.length || 9;
+    var doing = total - done - gap;
+    var bar = '<div class="bar"><i class="done" style="width:' + (done / total * 100) + '%"></i><i class="doing" style="width:' + (doing / total * 100) + '%"></i><i class="gap" style="width:' + (gap / total * 100) + '%"></i></div>';
+    if (compact){
+      var mini = items.map(function(it){
+        var pills = it.tickets.map(function(id){ var t = ticketById(id); return t ? '<span class="pill" data-act="select" data-val="ticket:' + id + '"><span class="work-dot ' + workDot(t.work) + '"></span>#' + id + "</span>" : ""; }).join("");
+        return '<div class="cov-mini ' + (it.gap ? "gap" : "") + '"><div class="cm-top"><span class="cov-num">' + String(it.frag).padStart(2, "0") + '</span><span class="cov-status ' + it.cls + '">' + it.status + '</span></div><div class="cm-text">' + esc(it.text) + '</div><div class="cm-tickets">' + (pills || '<span class="empty">没有票</span>') + "</div></div>";
+      }).join("");
+      return '<div class="cov-compact"><div class="cov-mini-head"><div><span class="eyebrow">Destination 覆盖表</span><b>' + done + " 已落 · " + doing + " 进行中 · " + gap + ' 缺口</b></div><div class="cov-bar" style="min-width:110px">' + bar + '<div class="lbl"><span>已落 ' + done + '</span><span>缺口 ' + gap + "</span></div></div></div>" + mini + "</div>";
+    }
+    var rows = items.map(function(it){
+      var shown = it.tickets.slice(0, 8);
+      var rest = it.tickets.length - shown.length;
+      var pills = shown.map(function(id){ var t = ticketById(id); return t ? '<span class="pill" data-act="select" data-val="ticket:' + id + '"><span class="work-dot ' + workDot(t.work) + '"></span>#' + id + "</span>" : ""; }).join("") +
+        (rest > 0 ? '<span class="pill pill-more" title="' + esc(it.tickets.slice(8).map(function(id){ return "#" + id; }).join(" ")) + '">还有 ' + rest + " 张</span>" : "");
+      return '<tr class="cov-row ' + (it.gap ? "gap" : "") + '"><td class="cov-num">' + String(it.frag).padStart(2, "0") + '</td><td class="cov-text">' + esc(it.text) + '</td><td><div class="cov-tickets">' + (pills || '<span class="empty">没有票</span>') + '</div></td><td class="cov-status ' + it.cls + '">' + it.status + "</td></tr>";
+    }).join("");
+    return '<div class="coverage">' +
+      '<div class="cov-head"><div><span class="eyebrow">Destination 覆盖表</span><h2>' + done + " 句已落 · " + doing + " 句进行中 · " + gap + ' 句缺口</h2><p class="sum">覆盖行由拆句和票上的 covers 联接算出。工作状态不存进票，由 orca 同步。</p></div>' +
+      '<div class="cov-bar">' + bar + '<div class="lbl"><span>已落 ' + done + '</span><span>进行中 ' + doing + '</span><span>缺口 ' + gap + "</span></div></div></div>" +
+      '<table class="cov-table"><thead><tr><th style="width:44px">句</th><th>原文</th><th style="width:190px">接的票</th><th style="width:74px">状态</th></tr></thead><tbody>' + rows + "</tbody></table>" +
+      '<div class="cov-note">缺口是根决定的某一句没有任何票接。红色虚线框，点一下能看缺在哪一句。第 5 句「地图终点 = 可施工」是验收线，不是工作句，现在没有票落在上面，这是这张图最该看的地方。</div></div>';
+  }
+
+  /* ---------- 信号 ---------- */
+  function signalCountA(s){
+    var ts = ticketsOfMap(D.map.id), ds = allDecisions().filter(function(d){ return d.layer === "new"; });
+    if (s.key === "orphan-ticket") return ts.filter(function(t){ return !(t.derivedFrom || []).length; }).length;
+    if (s.key === "orphan-decision") return ds.filter(function(d){ return d.isBase && !d.root && !d.sourceTicket; }).length;
+    if (s.key === "stale-decision") return state.demo.has("stale-decision") ? 1 : 0;
+    if (s.key === "bare-decision") return ds.filter(function(d){ return d.isBase && !d.root && !premisesOf(d).length; }).length;
+    if (s.key === "broken-premise") return allPremises().filter(function(p){ var d = findDecision(p.decision); return d && d.layer === "new" && p.state === "已破"; }).length;
+    if (s.key === "coverage-gap") return state.demo.has("coverage-gap") ? 1 : 0;
+    if (s.key === "impact-open") return D.impact && D.impact.items && Object.keys(state.processed).length < D.impact.items.length ? 1 : 0;
+    if (s.key === "stuck-ticket") return ts.filter(function(t){ return t.work === "卡住"; }).length;
+    if (s.key === "sync-error") return state.demo.has("sync-error") ? 1 : 0;
+    return s.count;
+  }
+  function signalCount(s){ return signalCountA(s); }
+  function signalRail(){
+    return '<div class="sig-list">' + D.signals.map(function(s){
+      var n = signalCount(s);
+      var demo = signalDemo(s);
+      return '<button class="sig ' + (state.filter === s.key ? "active" : "") + '" data-act="signal" data-val="' + s.key + '" title="' + esc(s.hint) + '">' +
+        '<span class="sig-dot ' + s.tone + '"></span><span class="sig-label">' + signalLabel(s) + '</span>' +
+        (demo ? '<span class="sig-demo">示例</span>' : "") +
+        '<span class="sig-count ' + (n === 0 ? "zero" : "") + '">' + n + "</span></button>";
+    }).join("") + "</div>";
+  }
+  function signalChips(){
+    return '<div class="sig-chips">' + D.signals.map(function(s){
+      var n = signalCount(s), demo = signalDemo(s);
+      return '<button class="sig-chip ' + (state.filter === s.key ? "active" : "") + '" data-act="signal" data-val="' + s.key + '" title="' + esc(s.hint) + '"><span class="sig-dot ' + s.tone + '"></span>' + signalLabel(s) + '<b>' + n + "</b>" + (demo ? "<i>示例</i>" : "") + "</button>";
+    }).join("") + "</div>";
+  }
+  function demoTarget(key){ return {"stale-decision":"ticket:124", "sync-error":"ticket:151"}[key] || null; }
+  function signalBadges(kind, id){
+    var key = kind + ":" + id, out = [];
+    D.signals.forEach(function(s){
+      var hit = (s.targets || []).indexOf(key) >= 0 || (state.demo.has(s.key) && demoTarget(s.key) === key);
+      if (hit) out.push('<span class="chip ' + s.tone + '">' + signalLabel(s) + (state.demo.has(s.key) ? " · 示例" : "") + "</span>");
+    });
+    return out.join("");
+  }
+  function signalList(){
+    return '<div class="signal-panel"><h3>九类视觉信号</h3>' + D.signals.map(function(s){
+      var n = signalCount(s), demo = signalDemo(s);
+      return '<button class="sig ' + (state.filter === s.key ? "active" : "") + '" data-act="signal" data-val="' + s.key + '">' +
+        '<span class="sig-dot ' + s.tone + '"></span><span class="sig-label">' + signalLabel(s) + '</span>' +
+        (demo ? '<span class="sig-demo">示例</span>' : "") +
+        '<span class="sig-count ' + (n === 0 ? "zero" : "") + '">' + n + "</span></button>" +
+        '<div class="sig-hint">' + esc(s.hint) + "</div>";
+    }).join("") + "</div>";
+  }
+  function filterBanner(){
+    if (!state.filter) return "";
+    var s = signalByKey(state.filter); if (!s) return "";
+    return '<div class="filter-banner"><b>信号：' + signalLabel(s) + "</b><span>" + esc(s.hint) + '</span><span style="flex:1"></span><button class="btn small ghost" data-act="clear-filter">清除</button></div>';
+  }
+
+  /* ---------- 详情 ---------- */
+  function premiseTone(p){
+    return p.state === "已破" ? "red" : p.state === "成立" ? "green" : p.state === "未知" ? "amber" : "gray";
+  }
+  function supportLabel(target){
+    if (target.indexOf("P-") === 0) return "支撑前提 " + target;
+    if (target.indexOf("D-") === 0) return "支撑决定 " + target;
+    if (target.indexOf("ticket:") === 0) return "支撑这张票";
+    return "支撑 " + target;
+  }
+  function supportChip(target){
+    var label = target, val = "";
+    if (target.indexOf("P-") === 0){ label = "前提 " + target; val = "premise:" + target; }
+    else if (target.indexOf("D-") === 0){ label = "决定 " + target; val = "decision:" + target; }
+    else if (target.indexOf("ticket:") === 0){ label = "票 #" + target.slice(7); val = target; }
+    if (!val) return '<span class="chip">' + esc(label) + "</span>";
+    return '<button class="chip" data-act="select" data-val="' + esc(val) + '">' + esc(label) + "</button>";
+  }
+  function decisionRole(arch, d, isMain){
+    var r = arch && arch.roles && arch.roles[d.id];
+    if (r) return r;
+    return trunc(String(decisionStatement(d) || "").replace(/\n/g, " "), 32);
+  }
+  function premiseNewFact(p, arch){
+    var ad = archiveDecisionOf(arch, p.decision);
+    var pc = ad && ad.premiseContext && ad.premiseContext[p.id];
+    if (pc && pc.newFact) return pc.newFact;
+    return p.lastJudge ? p.lastJudge.reason : "还没判过。";
+  }
+  function premiseSource(p, arch){
+    var ad = archiveDecisionOf(arch, p.decision);
+    var pc = ad && ad.premiseContext && ad.premiseContext[p.id];
+    if (pc && pc.source) return pc.source;
+    return (p.evidence || []).join(" · ") || "没有记录来源";
+  }
+  function premiseJudgment(p){
+    if (!p.lastJudge) return "还没判过。";
+    return p.lastJudge.at + "，" + p.lastJudge.by + " 判 " + p.lastJudge.verdict + "。理由：" + p.lastJudge.reason;
+  }
+  function premiseImpactText(p){
+    if (D.impact && D.impact.triggerPremise === p.id){
+      return "影响清单 " + D.impact.id + "：" + D.impact.decisions.length + " 条决定、" + D.impact.tickets.length + " 张票（#" + D.impact.tickets.join(" / #") + "）。";
+    }
+    return p.state === "已破" ? "这条前提判破后没有登记影响清单。" : "没有触发影响清单。";
+  }
+  function premiseTimelineHtml(p, arch){
+    var ad = archiveDecisionOf(arch, p.decision);
+    var pc = ad && ad.premiseContext && ad.premiseContext[p.id];
+    var fact = pc && pc.fact ? pc.fact : p.statement;
+    return '<ol class="p-timeline">' +
+      '<li><span class="step-label">原前提</span><p>' + esc(fact) + "</p></li>" +
+      '<li><span class="step-label">新事实</span><p>' + esc(premiseNewFact(p, arch)) + '</p><p class="step-source">来源：' + esc(premiseSource(p, arch)) + "</p></li>" +
+      '<li><span class="step-label">判定</span><p>' + esc(premiseJudgment(p)) + "</p></li>" +
+      '<li><span class="step-label">影响</span><p>' + esc(premiseImpactText(p)) + "</p></li>" +
+      "</ol>";
+  }
+  function excerptSourceHtml(ex){
+    var label = ex.sourceLabel || "来源未记";
+    if (ex.sourceUrl) return '<a href="' + esc(ex.sourceUrl) + '" target="_blank" rel="noreferrer">' + esc(label) + "</a>";
+    return esc(label);
+  }
+  /* ---------- 侧边栏：票讲任务，决定讲结论和依据 ---------- */
+  function sbSection(n, title, body, count){
+    if (!body) return "";
+    return '<div class="sb-h"><span class="sb-n">' + n + "</span>" + esc(title) +
+      (count != null ? '<span class="sb-cnt">' + count + "</span>" : "") + "</div>" + body;
+  }
+  function sourceTicketOf(d){
+    return d && d.sourceTicket ? findTicket(d.sourceTicket) : null;
+  }
+  function decisionHead(d, kindLabel){
+    var st = decisionStatus(d), t = sourceTicketOf(d);
+    var ps = premisesOf(d);
+    return '<div class="sb-head">' +
+      '<div class="sb-idrow"><span class="id">' + esc(d.id) + "</span>" +
+      (d.root ? '<span class="chip accent">根决定</span>' : d.isBase ? '<span class="chip accent">主决定</span>' : '<span class="chip">补充决定</span>') +
+      stateChip(st) + (d.partlySuperseded ? '<span class="chip amber">部分被取代</span>' : "") + (d.layer === "old" ? '<span class="chip gray">旧图</span>' : "") + signalBadges("decision", d.id) + "</div>" +
+      "<h2>" + esc(decisionStatement(d)) + "</h2>" +
+      '<div class="sb-meta">' +
+      (t ? '<button class="id-link" data-act="select" data-val="ticket:' + t.id + '">来源票 #' + t.id + "</button>"
+         : d.root ? '<a class="id-link" href="' + esc(D.map.url || "#") + '" target="_blank" rel="noreferrer">地图 #' + esc(D.map.id) + " 正文</a>"
+         : '<span>没有来源票</span>') +
+      '<span class="sb-dot">·</span><span>' + (D.impact && D.impact.decisions.indexOf(d.id) >= 0 ? "在影响清单 " + D.impact.id + " 里" : "不在影响清单里") + "</span>" +
+      '<span class="sb-dot">·</span><span>' + (ps.length ? ps.length + " 条前提" : "没有记录前提") + "</span>" +
+      (d.supersedes && d.supersedes !== "无" ? '<span class="sb-dot">·</span><span>取代 ' + esc(d.supersedes) + "</span>" : "") +
+      "</div>" +
+      '<div class="sb-actions">' +
+      '<button class="btn small primary" data-act="modal" data-val="add-premise" data-arg="' + esc(d.id) + '">加前提</button>' +
+      (ps.length ? '<button class="btn small" data-act="modal" data-val="judge-premise" data-arg="' + esc(ps[0].id) + '">判前提</button>' : "") +
+      '<button class="btn small" data-act="modal" data-val="overturn" data-arg="' + esc(d.id) + '">推翻决定</button>' +
+      "</div></div>";
+  }
+
+  /* 因果边：这条决定从哪条决定拆出、又拆出了哪些票 */
+  function decisionCausalHtml(d){
+    var t = sourceTicketOf(d);
+    var ups = t ? (t.derivedFrom || []).map(findDecision).filter(Boolean) : [];
+    var downs = allTickets().filter(function(x){ return (x.derivedFrom || []).indexOf(d.id) >= 0; })
+      .sort(function(a,b){ return Number(a.id) - Number(b.id); });
+    var out = '<div class="sb-quiet" style="margin-bottom:6px">从哪条决定拆出</div>';
+    if (!ups.length){
+      out += '<div class="sb-empty">' + (d.root ? "这条是根决定，没有上游。" : "来源票没记 derived_from，看不出上游。") + "</div>";
+    } else {
+      out += ups.map(function(u){
+        var st = sourceTicketForDecision(u);
+        var src = u.root ? "根决定" : st ? "#" + st.id + " 产出" : "无源决定";
+        return '<div class="prod-row" data-act="select" data-val="decision:' + esc(u.id) + '"><span class="pr-id">' + esc(u.id) + '</span><span class="pr-role">' + esc(decisionStatement(u)) + '</span><span class="pr-state"><span class="chip gray">' + esc(src) + "</span></span></div>";
+      }).join("");
+    }
+    out += '<div class="sb-quiet" style="margin:10px 0 6px">这条决定拆出了哪些票</div>';
+    if (!downs.length){
+      out += '<div class="sb-empty">还没有票从这条决定拆出。</div>';
+    } else {
+      var LIMIT = 12, shown = downs.slice(0, LIMIT), rest = downs.length - shown.length;
+      out += shown.map(function(x){
+        return '<div class="prod-row" data-act="select" data-val="ticket:' + esc(x.id) + '"><span class="pr-id">#' + esc(x.id) + '</span><span class="pr-role">' + esc(ticketTitle(x)) + '</span><span class="pr-state"><span class="chip">' + esc(x.type || "task") + "</span></span></div>";
+      }).join("");
+      if (rest > 0) out += '<p class="rel-note">还有 ' + rest + " 张，图上按票号排。</p>";
+    }
+    return out;
+  }
+
+  /* 组内：主决定 + 补充决定按实现维度分组 */
+  function groupInnerHtml(d, arch){
+    var baseId = d.isBase ? d.id : d.base;
+    var base = findDecision(baseId);
+    if (!base) return "";
+    var subs = subDecisions(base);
+    if (!subs.length) return "";
+    var focusId = d.id;
+    var mainRole = decisionRole(arch, base, true);
+    var groups = (arch && arch.groups) || [];
+    var byId = {};
+    subs.forEach(function(x){ byId[x.id] = x; });
+    var placed = {};
+    var dims = groups.map(function(g){
+      var items = (g.ids || []).map(function(id){ return byId[id]; }).filter(Boolean).map(function(x){ placed[x.id] = 1; return x; });
+      return items.length ? {name:g.name, items:items} : null;
+    }).filter(Boolean);
+    var rest = subs.filter(function(x){ return !placed[x.id]; });
+    if (rest.length) dims.push({name:"其他", items:rest});
+    var dimHtml = dims.map(function(g){
+      var chips = g.items.map(function(x){
+        return '<button class="rel-chip' + (x.id === focusId ? " active" : "") + '" data-act="select" data-val="decision:' + esc(x.id) + '">' +
+          '<span class="rc-id">' + esc(x.id) + "</span>" + esc(decisionRole(arch, x, false)) + "</button>";
+      }).join("");
+      return '<div class="rel-dim"><span class="rd-name">' + esc(g.name) + '</span><div class="rd-items">' + chips + "</div></div>";
+    }).join("");
+    return '<div class="rel-block">' +
+      '<button class="rel-main' + (focusId === base.id ? " active" : "") + '" data-act="select" data-val="decision:' + esc(base.id) + '">' +
+        '<span class="rm-top"><span class="chip accent">主决定</span><span class="id">' + esc(base.id) + "</span></span>" +
+        '<p class="rm-role">' + esc(mainRole) + "</p>" +
+        '<p class="rm-stmt">' + esc(trunc(decisionStatement(base), 70)) + "</p></button>" +
+      dimHtml +
+      '<p class="rel-note">同一张票产出的 ' + (subs.length + 1) + " 条独立决定。主决定给结论，补充决定给实现规则；按维度分组是读法，模型里没有父子字段。</p>" +
+      "</div>";
+  }
+
+  /* 组间：同一张地图里的决策组小树 */
+  function groupTreeHtml(d){
+    var baseId = d.isBase ? d.id : d.base;
+    var all = allDecisions().filter(function(x){ return x.isBase && !x.root && x.layer === "new" && !x.base.startsWith("D-9"); });
+    if (!all.length) return "";
+    /* 组多时只列靠近当前决定的一段，避免 50 多行挤满侧边栏 */
+    var LIMIT = 10, cut = 0, groups = all;
+    if (all.length > LIMIT + 2){
+      var at = all.map(function(x){ return x.id; }).indexOf(baseId);
+      if (at < 0) at = 0;
+      cut = Math.max(0, Math.min(all.length - LIMIT, at - Math.floor(LIMIT / 2)));
+      groups = all.slice(cut, cut + LIMIT);
+    }
+    var hidden = all.length - groups.length;
+    var W = 424, rowH = 34, gap = 6;
+    var nodes = groups.map(function(g, i){
+      var t = sourceTicketOf(g);
+      var subs = subDecisions(g).length;
+      return {g:g, t:t, subs:subs, x:0, y:34 + i * rowH};
+    });
+    var H = 34 + nodes.length * rowH + 14 + (all.length > groups.length ? 16 : 0);
+    var rootW = 132;
+    var edges = nodes.map(function(nd){
+      return '<path class="gt-edge" d="M ' + rootW + " 27 H " + (rootW + 10) + " V " + (nd.y + 12) + " H " + (rootW + 20) + '"></path>';
+    }).join("");
+    var nodeHtml = nodes.map(function(nd){
+      var cur = nd.g.id === baseId;
+      return '<g class="gt-node' + (cur ? " cur" : "") + '" data-act="select" data-val="decision:' + esc(nd.g.id) + '" transform="translate(' + (rootW + 20) + "," + nd.y + ')">' +
+        '<rect width="' + (W - rootW - 24) + '" height="24" rx="5"></rect>' +
+        '<text class="gt-ticket" x="7" y="10">' + (nd.t ? "#" + nd.t.id : "无票") + "</text>" +
+        '<text class="gt-label" x="44" y="10">' + esc(nd.g.id) + " · " + esc(trunc(decisionRole(archiveOf(nd.t), nd.g, true), 16)) + "</text>" +
+        (nd.subs ? '<text class="gt-ticket" x="' + (W - rootW - 44) + '" y="10">+' + nd.subs + "</text>" : "") +
+        (cur ? '<rect class="gt-ring" x="0.5" y="0.5" width="' + (W - rootW - 25) + '" height="23" rx="5" style="fill:none" stroke="var(--accent)" stroke-width="1.6"></rect>' : "") +
+        "</g>";
+    }).join("");
+    var more = hidden > 0 ? '<text class="gt-more" x="0" y="' + (H - 4) + '">' + (cut > 0 ? "上面还有 " + cut + " 组 · " : "") + "下面还有 " + (hidden - cut) + " 组，图上按节点顺序排" + "</text>" : "";
+    return '<svg class="group-tree" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="同一张地图里的决策组">' +
+      '<g class="gt-node root"><rect x="0" y="12" width="' + rootW + '" height="30" rx="5"></rect>' +
+      '<text class="gt-root" x="8" y="25">' + esc(rootId()) + '</text><text class="gt-label" x="8" y="36">' + (D.map.fragments || []).length + ' 句 · ' + all.length + ' 组</text></g>' +
+      edges + nodeHtml + more + "</svg>";
+  }
+
+  function decisionImpactHtml(d){
+    var baseId = d.isBase ? d.id : d.base;
+    var group = allDecisions().filter(function(x){ return x.base === baseId; }).map(function(x){ return x.id; });
+    if (!D.impact || D.impact.decisions.indexOf(d.id) < 0){
+      var done = D.impact && D.impact.decisions.filter(function(id){ return group.indexOf(id) < 0; });
+      return '<div class="sb-empty">没有影响清单。这条决定没被任何已破前提扫到' + (done && done.length ? "。" : "。") + '</div>';
+    }
+    var items = D.impact.items.filter(function(it){ return it.kind === "decision" && it.id === d.id; })[0];
+    var processed = state.processed[items ? items.key : ""];
+    return '<div class="impact-line hot"><span class="il-k">影响清单</span><div class="il-v"><b>' + esc(D.impact.id) + "</b> 由 " + esc(D.impact.triggerPremise) + " 判破触发。这条在名单里，" +
+      (processed ? "已处理：" + esc(processed) : "还没处理") + "。</div></div>" +
+      '<div class="impact-line"><span class="il-k">同组</span><div class="il-v">' + group.length + " 条决定一起看；受影响票 #" + D.impact.tickets.join(" / #") + "。</div></div>" +
+      (processed ? "" : '<div class="sb-actions"><button class="btn small" data-act="mode" data-val="impact">去影响清单处理</button></div>');
+  }
+
+  function decisionSidebarHtml(d){
+    var arch = archiveOf(sourceTicketOf(d));
+    var ps = premisesOf(d), prod = producedBy(d);
+    var focusId = d.id;
+    var premRows = ps.map(function(p){
+      return '<details class="p-line ' + premiseTone(p) + '">' +
+        '<summary><span class="pl-id">' + esc(p.id) + "</span>" + stateChip(p.state) +
+        '<span class="pl-stmt">' + esc(p.statement) + "</span></summary>" +
+        '<div class="pl-body">' + premiseTimelineHtml(p, arch) + "</div></details>";
+    }).join("");
+    var premBody = ps.length ? premRows : '<div class="sb-empty">没有记录前提。这条决定不会被前提判破自动标红，只能靠人想起。</div>';
+
+    var ad = archiveDecisionOf(arch, d.id);
+    var basisBody = '<p class="sb-lead">' + esc(ad && ad.basis ? ad.basis : "依据摘要还没起草。") + "</p>" +
+      ((d.outputs || []).length ? '<dl class="sb-kv" style="margin-top:9px"><dt>产出文件</dt><dd>' + d.outputs.map(function(f){ return '<code class="mono" style="font-size:11px">' + esc(f) + "</code>"; }).join("<br>") + "</dd></dl>" : "");
+
+    if (d.sourceTicket && !arch){
+      basisBody += '<p class="sb-quiet" style="margin-top:9px">没有依据摘要。上面这句是 <a href="' + esc("https://github.com/Lil-BobCN/grilling-remote/issues/" + d.sourceTicket) + '" target="_blank" rel="noreferrer">#' + esc(d.sourceTicket) + " 的关票结论</a>原文，逐字没加工。</p>";
+    }
+    var causal = decisionCausalHtml(d);
+    var inner = groupInnerHtml(d, arch);
+    var relBody = causal + '<div style="height:14px"></div>' + (inner ? inner + '<div style="height:12px"></div>' : "") +
+      '<div class="sb-quiet" style="margin-bottom:6px">同一张地图里的其他决策组</div>' + groupTreeHtml(d) +
+      '<p class="rel-note">组间只画读得出的边：同根、票的顺序、覆盖句。没有显式的「决定依赖决定」字段。</p>';
+
+    var exList = (arch && arch.excerpts) || [];
+    var exGroups = {};
+    exList.forEach(function(ex){
+      (ex.supports || []).forEach(function(tg){
+        if (tg === d.id || tg === focusId || (tg.indexOf("P-") === 0 && ps.some(function(p){ return p.id === tg; }))) (exGroups[tg] = exGroups[tg] || []).push(ex);
+      });
+    });
+    var exHtml = Object.keys(exGroups).map(function(tg){
+      return '<div class="excerpt-group"><h4>' + esc(supportLabel(tg)) + "</h4>" + exGroups[tg].map(function(ex){
+        return '<div class="excerpt"><div class="ex-top"><span class="id">' + esc(ex.id) + "</span></div>" +
+          '<p class="ex-q"><b>问：</b>' + esc(ex.question) + "</p>" +
+          '<p class="ex-a"><b>答：</b>' + esc(ex.answer) + "</p>" +
+          '<p class="ex-src">来源：' + excerptSourceHtml(ex) + "</p></div>";
+      }).join("") + "</div>";
+    }).join("");
+    var exBody = exList.length ? '<details class="fold"><summary>展开 ' + exList.length + ' 组对话摘录<span class="fold-hint">带来源</span></summary><div class="fold-body">' + (exHtml || '<div class="empty">没有支撑这条决定的摘录。</div>') + "</div></details>" : "";
+
+    var todo = [];
+    ps.filter(function(p){ return p.state !== "成立"; }).forEach(function(p){ todo.push(p.id + " " + p.state + "：" + p.statement); });
+    if (d.root && D.map.id === 139) todo.push("9 句拆句已被 #149、#151、#152 部分覆盖，第 3 句还没票。");
+    if (d.root && window.PROTO_MAP1 && D.map.id === 1) (D.notYetSpecified || []).slice(0, 4).forEach(function(x){ todo.push(x); });
+    var todoBody = todo.length ? '<ul class="archive-todo">' + todo.map(function(x){ return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : '<div class="sb-empty">没有记下的未定项。</div>';
+
+    var rootExtra = "";
+    if (d.root){
+      rootExtra = '<div class="sb-h"><span class="sb-n">01</span>这张地图<span class="sb-cnt">' + (D.map.fragments || []).length + ' 句</span></div>' +
+        '<p class="sb-lead">' + esc(D.map.destination) + "</p>" +
+        '<ul class="frag-list">' + D.map.fragments.map(function(f, i){
+          return '<li><span class="frag-n">' + String(i + 1).padStart(2, "0") + "</span><span>" + esc(f) + "</span></li>";
+        }).join("") + "</ul>";
+    }
+
+    return '<div data-focus="decision:' + esc(d.id) + '">' + decisionHead(d, "决定") + rootExtra +
+      sbSection(d.root ? "02" : "01", "支撑这个决定的前提", premBody, ps.length) +
+      sbSection(d.root ? "03" : "02", "依据摘要与产出", basisBody) +
+      sbSection(d.root ? "04" : "03", "决策与决策的关系", relBody) +
+      sbSection(d.root ? "05" : "04", "这个决定的影响", decisionImpactHtml(d)) +
+      sbSection(d.root ? "06" : "05", "支撑这个决定的对话摘录", exBody || '<div class="sb-empty">' + (d.root ? "根决定的摘录散在它拆出的票里，看来源票。" : "还没有记下支撑这条决定的摘录。") + "</div>") +
+      sbSection(d.root ? "07" : "06", "未定 / 下一步", todoBody) +
+      "</div>";
+  }
+
+  /* 票侧边栏：怎么拆出来的、要做什么、产出了什么、证据、未定 */
+  function ticketBodyParts(t){
+    var arch = archiveOf(t), bg = (arch && arch.background) || {};
+    var body = bg.body || t.body || "";
+    var parts = {question:"", scope:"", success:"", blockers:"", evidence:"", background:"", other:""};
+    if (body){
+      var re = /^##\s+(.+)$/gm, marks = [], m;
+      while ((m = re.exec(body))) marks.push({title:m[1].trim(), start:m.index + m[0].length});
+      marks.forEach(function(mk, i){
+        var end = i + 1 < marks.length ? marks[i + 1].start - marks[i + 1].title.length - 4 : body.length;
+        var text = body.slice(mk.start, end).trim();
+        if (/Question/i.test(mk.title) || /要回答的/.test(mk.title)) parts.question = text;
+        else if (/Scope/i.test(mk.title)) parts.scope = text;
+        else if (/Success/i.test(mk.title) || /完成条件/.test(mk.title)) parts.success = text;
+        else if (/blocker/i.test(mk.title)) parts.blockers = text;
+        else if (/Evidence/i.test(mk.title) || /参考/.test(mk.title)) parts.evidence = text;
+        else if (/背景/.test(mk.title)) parts.background = text;
+      });
+    }
+    return {parts:parts, bg:bg, arch:arch, body:body};
+  }
+  function ticketSidebarHtml(t){
+    var bp = ticketBodyParts(t), arch = bp.arch, bg = bp.bg, parts = bp.parts, body = bp.body;
+    var decisions = (t.produces || []).map(findDecision).filter(Boolean);
+    var main = decisions[0] || null;
+    var basedOn = (t.derivedFrom || []).map(findDecision).filter(Boolean);
+    var covers = t.covers || [];
+    var fragments = D.map.fragments || [];
+
+    var head = '<div class="sb-head" data-focus="ticket:' + t.id + '">' +
+      '<div class="sb-idrow"><span class="id">#' + t.id + "</span>" +
+      '<span class="chip">' + esc(t.type) + "</span>" +
+      '<span class="chip ' + (t.state === "closed" ? "green" : "amber") + '">' + esc(t.work || t.state) + "</span>" +
+      '<span class="chip gray">' + (t.state === "closed" ? "已关闭" : "开放") + "</span>" + signalBadges("ticket", t.id) + "</div>" +
+      "<h2>" + esc(ticketTitle(t)) + "</h2>" +
+      '<div class="sb-meta"><span>地图 #' + esc(t.mapId) + '</span><span class="sb-dot">·</span><span>' + decisions.length + " 条产出决定</span>" +
+      '<span class="sb-dot">·</span><span>覆盖 ' + (covers.length ? covers.map(function(n){ return "第 " + n + " 句"; }).join("、") : "没有接句") + "</span>" +
+      (t.url ? '<span class="sb-dot">·</span><a href="' + esc(t.url) + '" target="_blank" rel="noreferrer">GitHub #' + t.id + "</a>" : "") +
+      "</div>" +
+      '<div class="sb-actions">' +
+      '<button class="btn small" data-act="modal" data-val="edit-ticket" data-arg="' + t.id + '">改票</button>' +
+      '<button class="btn small" data-act="modal" data-val="comment" data-arg="' + t.id + '">改评论</button>' +
+      '<button class="btn small" data-act="modal" data-val="new-ticket" data-arg="' + t.id + '">新建票</button>' +
+      "</div></div>";
+
+    /* 1 怎么拆出来的 */
+    var fromHtml = basedOn.length ? basedOn.map(function(d){
+      var st = sourceTicketForDecision(d);
+      var src = d.root ? "根决定" : st ? "#" + st.id + " 产出" : "无源决定";
+      return '<div class="prod-row" data-act="select" data-val="decision:' + esc(d.id) + '"><span class="pr-id">' + esc(d.id) + '</span><span class="pr-role">' + esc(decisionStatement(d)) + '</span><span class="pr-state"><span class="chip gray">' + esc(src) + "</span></span></div>";
+    }).join("") : '<div class="sb-quiet">这张票没记来源决定。</div>';
+    var fragHtml = covers.length ? '<ul class="frag-list" style="margin-top:8px">' + covers.map(function(n){
+      return '<li><span class="frag-n">第 ' + n + " 句</span><span>" + esc(fragments[n - 1] || "（这一句不在根决定的拆句里）") + "</span></li>";
+    }).join("") + "</ul>" : "";
+    var how = '<p class="sb-p">' + esc(ticketWhy(t) || "（导入的老票没有拆票理由）") + "</p>" +
+      '<div class="sb-quiet" style="margin-top:9px">从哪条决定拆出</div>' + fromHtml +
+      (fragHtml ? '<div class="sb-quiet" style="margin-top:9px">覆盖根决定哪几句</div>' + fragHtml : "");
+
+    /* 2 要做什么 */
+    var whatBody = "";
+    if (parts.question){
+      whatBody += '<div class="sb-md">' + mdLite(parts.question) + "</div>";
+    } else if (bg.summary){
+      whatBody += '<p class="sb-lead">' + esc(bg.summary) + "</p>";
+    } else if (parts.background){
+      whatBody += '<div class="sb-md">' + mdLite(parts.background) + "</div>";
+    } else if (body){
+      whatBody += '<p class="sb-quiet">票正文没有分 Question / Scope 段，展开下面的原文看。</p>';
+    } else {
+      whatBody += '<p class="sb-quiet">' + (t.url
+        ? '导入时没有带进票正文，去 <a href="' + esc(t.url) + '" target="_blank" rel="noreferrer">GitHub #' + t.id + "</a> 看原文。"
+        : "这张票还没有正文摘要。") + "</p>";
+    }
+    var kv = [];
+    if (parts.scope) kv.push("<dt>范围</dt><dd>" + mdLite(parts.scope) + "</dd>");
+    if (parts.success) kv.push("<dt>验收</dt><dd>" + mdLite(parts.success) + "</dd>");
+    if (parts.blockers) kv.push("<dt>阻塞</dt><dd>" + mdLite(parts.blockers) + "</dd>");
+    if (!kv.length && t.splitReason) kv.push("<dt>拆票理由</dt><dd>" + esc(t.splitReason) + "</dd>");
+    if (kv.length) whatBody += '<dl class="sb-kv" style="margin-top:10px">' + kv.join("") + "</dl>";
+    if (body){
+      whatBody += '<details class="fold" style="margin-top:10px"><summary>票正文原文<span class="fold-hint">GitHub #' + t.id + '</span></summary><div class="fold-body"><pre class="archive-body">' + esc(body) + "</pre></div></details>";
+    }
+
+    /* 3 产出了什么 */
+    var prodBody;
+    if (decisions.length){
+      prodBody = decisions.map(function(d, i){
+        var st = decisionStatus(d);
+        return '<div class="prod-row" data-act="select" data-val="decision:' + esc(d.id) + '">' +
+          '<span class="pr-id">' + esc(d.id) + "</span>" +
+          '<span class="pr-role">' + (i === 0 ? '<span class="chip accent" style="margin-right:4px">主决定</span>' : "") + esc(decisionRole(arch, d, i === 0)) + "</span>" +
+          '<span class="pr-state">' + stateChip(st) + "</span></div>";
+      }).join("") + '<p class="rel-note">点击进决定侧边栏看前提和关系。</p>';
+    } else {
+      prodBody = '<div class="sb-empty">这张票还没有产出决定。</div>';
+    }
+
+    /* 4 证据 */
+    var excerpts = (arch && arch.excerpts) || [];
+    var eg = {};
+    excerpts.forEach(function(ex){
+      (ex.supports || []).forEach(function(tg){ (eg[tg] = eg[tg] || []).push(ex); });
+    });
+    var exBody = "";
+    if (excerpts.length){
+      exBody = '<details class="fold"><summary>' + excerpts.length + ' 组对话摘录<span class="fold-hint">按支撑对象分组 · 带来源</span></summary><div class="fold-body">' +
+        Object.keys(eg).map(function(tg){
+          return '<div class="excerpt-group"><h4>' + esc(supportLabel(tg)) + "</h4>" + eg[tg].map(function(ex){
+            return '<div class="excerpt"><div class="ex-top"><span class="id">' + esc(ex.id) + "</span>" + supportChip(tg) + "</div>" +
+              '<p class="ex-q"><b>问：</b>' + esc(ex.question) + "</p>" +
+              '<p class="ex-a"><b>答：</b>' + esc(ex.answer) + "</p>" +
+              '<p class="ex-src">来源：' + excerptSourceHtml(ex) + "</p></div>";
+          }).join("") + "</div>";
+        }).join("") + "</div></details>";
+    } else if (parts.evidence){
+      exBody = '<div class="sb-md">' + mdLite(parts.evidence) + "</div>" +
+        '<p class="rel-note">来自票正文的 Evidence 段，逐字没加工。</p>';
+    } else {
+      exBody = '<div class="sb-empty">' + (arch ? "这张票还没有对话摘录。摘录由 agent 起草，带来源指针。" : "导入的票没有对话摘录。") + "</div>";
+    }
+
+    /* 5 未定 */
+    var unresolved = (arch && arch.unresolved) || (t.state === "open" ? ["这张票还没关，未定项随票更新。"] : []);
+    var todoBody = unresolved.length ? '<ul class="archive-todo">' + unresolved.map(function(x){ return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" : '<div class="sb-empty">没有记下的未定项。</div>';
+
+    return head +
+      sbSection("01", "这张票怎么拆出来的", how) +
+      sbSection("02", "这张票要做什么", whatBody) +
+      sbSection("03", "这张票产出了什么", prodBody, decisions.length) +
+      sbSection("04", "支撑这张票的证据", exBody, excerpts.length) +
+      sbSection("05", "未定 / 下一步", todoBody);
+  }
+
+  function detailView(compact){
+    var sel = parseSel();
+    if (!sel.kind) return emptySidebar();
+    var d = sel.kind === "premise" ? findDecision((findPremise(sel.id) || {}).decision || "") : null;
+    if (sel.kind === "decision") d = findDecision(sel.id);
+    if (sel.kind === "premise"){
+      var p = findPremise(sel.id);
+      if (p) return decisionSidebarHtml(findDecision(p.decision) || {id:p.decision, statement:p.statement, status:"active", isBase:true, layer:"new", sourceTicket:null, outputs:[]});
+    }
+    if (sel.kind === "ticket"){
+      var t = findTicket(sel.id);
+      if (t) return archiveOf(t) || t.mapId === 139 || t.mapId === 1 ? ticketSidebarHtml(t) : ticketSidebarLegacy(t);
+    }
+    if (sel.kind === "excerpt"){
+      var found = findExcerpt(sel.id);
+      if (found && found.ticket) return ticketSidebarHtml(found.ticket);
+    }
+    if (d) return decisionSidebarHtml(d);
+    return emptySidebar();
+  }
+  function emptySidebar(){
+    return '<div class="sb-head"><span class="eyebrow">中台</span><h2>点一张票，或一条决定</h2>' +
+      '<p class="sb-meta" style="display:block">票讲任务：怎么拆出来、要做什么、产出了什么。决定讲结论：前提、依据、和别的决定怎么连。</p></div>' + signalList() +
+      '<div class="sb-h"><span class="sb-n">附</span>九类信号</div><div class="sb-quiet">点信号筛图；数字是当前真数据里命中的条数。</div>';
+  }
+  /* 没有档案层的票（旧图 #117 和地图 #1 导入的票），保留简版 */
+  function ticketSidebarLegacy(t){
+    var produces = (t.produces || []).map(function(id){
+      var d = findDecision(id);
+      return '<div class="prod-row" data-act="select" data-val="decision:' + esc(id) + '"><span class="pr-id">' + esc(id) + '</span><span class="pr-role">' + esc(d ? trunc(decisionStatement(d), 60) : "") + "</span></div>";
+    }).join("");
+    var basedOn = (t.derivedFrom || []).map(findDecision).filter(Boolean);
+    var nonRoot = basedOn.filter(function(d){ return !d.root; });
+    var fromHtml;
+    if (nonRoot.length){
+      fromHtml = '<div class="sb-quiet" style="margin-top:9px">从哪条决定拆出（上游票产出的决定）</div>' + nonRoot.map(function(d){
+        var st = sourceTicketForDecision(d);
+        return '<div class="prod-row" data-act="select" data-val="decision:' + esc(d.id) + '"><span class="pr-id">' + esc(d.id) + '</span><span class="pr-role">' + esc(trunc(decisionStatement(d), 60)) + (st ? ' · 由票 #' + st.id + ' 产出' : '') + "</span></div>";
+      }).join("");
+    } else {
+      fromHtml = '<div class="sb-quiet" style="margin-top:9px">从根决定直接拆出，没有经过上游票。</div>';
+    }
+    return '<div class="sb-head"><div class="sb-idrow"><span class="id">#' + t.id + '</span><span class="chip">' + esc(t.type) + '</span><span class="chip ' + (t.state === "closed" ? "green" : "amber") + '">' + esc(t.work || t.state) + "</span>" +
+      '<span class="chip gray">' + (t.state === "closed" ? "已关闭" : "开放") + "</span></div>" +
+      "<h2>" + esc(ticketTitle(t)) + "</h2>" +
+      '<div class="sb-meta"><span>地图 #' + esc(t.mapId) + " · 导入的票</span>" +
+      (t.url ? '<span class="sb-dot">·</span><a href="' + esc(t.url) + '" target="_blank" rel="noreferrer">GitHub #' + t.id + "</a>" : "") + "</div></div>" +
+      '<div class="sb-h"><span class="sb-n">01</span>这张票怎么拆出来的</div><p class="sb-p">' + esc(ticketWhy(t) || "导进来的票没有单独记拆票理由，从地图正文的「接下来」和票类型看出它属于哪一类。") + "</p>" + fromHtml +
+      '<div class="sb-h"><span class="sb-n">02</span>这张票产出了什么</div>' + (produces || '<div class="sb-empty">这张票还没有产出决定。</div>');
+  }
+
+  /* ---------- 影响清单 ---------- */
+  function impactStats(){
+    var total = D.impact.items.length, done = Object.keys(state.processed).length;
+    return {total: total, done: done, pct: total ? Math.round(done / total * 100) : 0};
+  }
+  function impactTrigger(){
+    var p = findPremise(D.impact.triggerPremise), d = findDecision(D.impact.triggerDecision);
+    return '<div class="trigger-card"><div class="tc-top"><span class="id">' + esc(D.impact.id) + "</span>" + stateChip("已破") + '<span class="chip">' + esc(D.impact.openedAt) + "</span></div>" +
+      '<p><b>' + esc(p ? p.statement : "") + "</b><br>" + esc(p && p.lastJudge ? p.lastJudge.reason : "") + "</p></div>";
+  }
+  function impactQueue(){
+    var st = impactStats();
+    var items = D.impact.items.map(function(it){
+      var done = state.processed[it.key];
+      var isDec = it.kind === "decision";
+      var acts = isDec ? ["仍成立","需修改","作废","要补问"] : ["保留","改范围","关掉","重开","新建"];
+      return '<div class="q-item ' + (done ? "done" : "pending") + '">' +
+        '<div class="q-top"><span class="kind">' + (isDec ? "决定" : "票") + '</span><span class="id">' + esc(isDec ? it.id : "#" + it.id) + "</span>" +
+        (done ? '<span class="chip green">已处理：' + esc(done) + "</span>" : '<span class="chip red">待处理</span>') + "</div>" +
+        '<p class="q-why">' + esc(it.why) + "</p>" +
+        (done ? '<div class="q-done-line"><span>处理动作：' + esc(done) + '</span><button class="btn small ghost" data-act="undo" data-val="' + it.key + '">撤销</button></div>' :
+          '<div class="q-actions">' + acts.map(function(a){ return '<button class="btn small" data-act="process" data-val="' + it.key + '" data-arg="' + a + '">' + a + "</button>"; }).join("") + "</div>") +
+        "</div>";
+    }).join("");
+    return '<div class="queue-head"><div><span class="eyebrow">影响清单 · 逐项处理</span><h2>' + esc(D.impact.id) + '</h2><p style="font-size:11px;color:var(--muted);margin-top:2px">决定四档，票五种。系统只列名单，不改决定。</p></div><div class="progress"><b>' + st.done + "/" + st.total + "</b>已处理<br>" + st.pct + "%</div></div>" + impactTrigger() + '<div class="q-list">' + items + "</div>";
+  }
+  function impactLayout(){
+    return '<div class="impact-layout"><main class="impact-main">' + graphA() + legendA() + '</main><aside class="impact-side">' + impactQueue() + '<div class="section" style="margin-top:18px">' + detailView() + "</div></aside></div>";
+  }
+
+  /* ---------- 顶部栏：44px 常驻，只放全局信息 ---------- */
+  function themePref(){
+    var v = document.documentElement.getAttribute("data-theme-pref");
+    return v === "light" || v === "dark" ? v : "auto";
+  }
+  function setThemePref(v){
+    try{ localStorage.setItem("tb-theme", v); }catch(e){}
+    document.documentElement.setAttribute("data-theme-pref", v);
+    var dark = v === "dark" || (v === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    var u = new URL(location.href);
+    if (v === "auto") u.searchParams.delete("theme"); else u.searchParams.set("theme", v);
+    try{ history.replaceState(null, "", u.toString()); }catch(e){}
+    render();
+  }
+  var ICON = {
+    sun:'<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 11.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0-1.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0-8.5a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 1.5Zm0 11a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 12.5ZM14.5 8a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1A.75.75 0 0 1 14.5 8Zm-11 0a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1A.75.75 0 0 1 3.5 8Zm9.1-4.6a.75.75 0 0 1 0 1.06l-.7.7a.75.75 0 1 1-1.06-1.06l.7-.7a.75.75 0 0 1 1.06 0ZM5.16 11.84a.75.75 0 0 1 0 1.06l-.7.7a.75.75 0 1 1-1.06-1.06l.7-.7a.75.75 0 0 1 1.06 0Zm8.44 1.76a.75.75 0 0 1-1.06 0l-.7-.7a.75.75 0 1 1 1.06-1.06l.7.7a.75.75 0 0 1 0 1.06ZM5.16 4.16a.75.75 0 0 1-1.06 0l-.7-.7a.75.75 0 0 1 1.06-1.06l.7.7a.75.75 0 0 1 0 1.06Z"/></svg>',
+    moon:'<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.6 1.2a.75.75 0 0 1 .25 1.02 5.5 5.5 0 0 0 4 8.1.75.75 0 0 1 .45 1.2A7 7 0 1 1 8.6.95a.75.75 0 0 1 1 .25ZM7.7 2.6a5.5 5.5 0 1 0 6.3 6.7A7 7 0 0 1 7.7 2.6Z"/></svg>',
+    auto:'<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm0 1.5v10a5 5 0 0 1 0-10Z"/></svg>',
+    panel:'<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.75 3h10.5a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-.75.75H2.75a.75.75 0 0 1-.75-.75v-8.5A.75.75 0 0 1 2.75 3Zm.75 1.5v7h9v-7h-9Zm1.5 1h3v5h-3v-5Z"/></svg>',
+    close:'<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.47 3.47a.75.75 0 0 1 1.06 0L8 6.94l3.47-3.47a.75.75 0 1 1 1.06 1.06L9.06 8l3.47 3.47a.75.75 0 1 1-1.06 1.06L8 9.06l-3.47 3.47a.75.75 0 0 1-1.06-1.06L6.94 8 3.47 4.53a.75.75 0 0 1 0-1.06Z"/></svg>'
+  };
+  function themeSeg(){
+    var cur = themePref();
+    function b(v, icon, label){
+      return '<button class="' + (cur === v ? "active" : "") + '" data-act="theme" data-val="' + v + '" title="' + label + '" aria-label="' + label + '" aria-pressed="' + (cur === v) + '">' + icon + "</button>";
+    }
+    return '<div class="theme-seg" role="group" aria-label="主题">' + b("light", ICON.sun, "浅色") + b("dark", ICON.moon, "深色") + b("auto", ICON.auto, "跟随系统") + "</div>";
+  }
+  function mapSwitch(){
+    if (MAP_ORDER.length < 2) return "";
+    var btns = MAP_ORDER.map(function(id){
+      var m = DATASETS[id].map;
+      return '<button class="' + (state.mapId === id ? "active" : "") + '" data-act="map" data-val="' + id + '" title="' + esc(m.title) + '">#' + id + "</button>";
+    }).join("");
+    return '<div class="map-seg" role="group" aria-label="切换地图">' + btns + "</div>";
+  }
+  function topbar(){
+    var c = counts();
+    var selCount = D.signals.filter(function(s){ return signalCount(s) > 0 || state.demo.has(s.key); }).length;
+    return '<header class="topbar">' +
+      '<div class="brand"><span class="logo">中</span><b>中台</b></div>' +
+      '<span class="tb-sep"></span>' +
+      '<div class="map-title"><b>#' + esc(D.map.id) + " " + esc(D.map.title) + '</b><span>决定是节点，票是边</span></div>' + mapSwitch() +
+      '<div class="top-counts"><span><b>' + c.bases + "</b> 组决定</span><span><b>" + c.tickets + "</b> 张票</span>" +
+      (c.open ? '<span><b>' + c.open + "</b> 开放</span>" : "") + "</div>" +
+      '<div class="seg"><button class="' + (state.mode === "graph" ? "active" : "") + '" data-act="mode" data-val="graph">决策图</button>' +
+      (D.impact && D.impact.items && D.impact.items.length ? '<button class="' + (state.mode === "impact" ? "active" : "") + '" data-act="mode" data-val="impact">影响清单</button>' : "") +
+      (D.coverage && D.coverage.length ? '<button class="' + (state.mode === "coverage" ? "active" : "") + '" data-act="mode" data-val="coverage">覆盖表</button>' : "") + "</div>" +
+      '<button class="tb-btn" data-act="top" data-val="toggle" aria-expanded="' + (state.top !== "closed") + '" title="信号与快照">' +
+        ICON.panel + '<span class="tb-signal"><span class="live-dot"></span><b>' + selCount + "</b></span></button>" +
+      themeSeg() +
+      "</header>";
+  }
+  function topbarPanel(){
+    var open = state.top !== "closed";
+    return '<div class="topbar-panel' + (open ? " open" : "") + '"><div><div class="topbar-panel-inner">' +
+      '<div class="tbp-block"><span class="tbp-label">信号</span>' + signalChips() + "</div>" +
+      '<div class="tbp-block"><span class="tbp-label">主句</span><span class="sb-quiet" style="max-width:46ch">' + esc(rootId()) + " " + (D.map.fragments || []).length + ' 句拆句，覆盖表由拆句、票和拆票理由联接算出。</span></div>' +
+      '<div class="tbp-block" style="margin-left:auto"><span class="tbp-label">快照</span><span class="tb-signal">' + esc(D.generatedAt) + "</span>" +
+      '<span class="tbp-label" style="margin-left:8px">原型</span><span class="sb-quiet">真数据来自 GitHub；前提和影响清单是示例。← → 换地图</span>' +
+      '<button class="tb-btn" data-act="top" data-val="close" title="收起" aria-label="收起顶部栏">' + ICON.close + "</button></div>" +
+      "</div></div></div>";
+  }
+  function impactBanner(){
+    if (!D.impact || !D.impact.items || !D.impact.items.length) return "";
+    var st = impactStats();
+    var action = state.mode === "impact"
+      ? '<button class="btn small" data-act="mode" data-val="graph">回到决策图</button>'
+      : '<button class="btn small" data-act="mode" data-val="impact">开始判定</button>';
+    var visible = state.mode !== "impact";
+    return '<div class="impact-banner' + (visible ? " show" : "") + '"><span class="pulse"></span><b>' + esc(D.impact.triggerPremise) + " 已破</b><span>影响 5 条决定、2 张票</span><span>·</span><span>已处理 " + st.done + "/" + st.total + '</span><span class="spacer"></span>' + action + "</div>";
+  }
+  function graphView(){
+    return filterBanner() + graphA();
+  }
+  function viewA(){
+    var ds = state.drawer || "closed";
+    var open = ds !== "closed", pinned = ds === "pinned";
+    var bodyCls = "a-body" + (open ? " drawer-open" : "") + (pinned ? " drawer-pinned" : "");
+    var sel = parseSel();
+    var kindLabel = sel.kind === "ticket" ? "票侧边栏" : sel.kind === "decision" ? "决定侧边栏" : sel.kind === "premise" ? "决定侧边栏 · 前提" : "审阅";
+    var titleLabel = "";
+    if (sel.kind === "ticket"){ var st = findTicket(sel.id); if (st) titleLabel = "#" + st.id + " " + trunc(ticketTitle(st), 22); }
+    else if (sel.kind === "decision"){ var sd = findDecision(sel.id); if (sd) titleLabel = sd.id + " " + trunc(decisionStatement(sd), 20); }
+    else if (sel.kind === "premise"){ var sp = findPremise(sel.id); if (sp) titleLabel = sp.id + " " + trunc(sp.statement, 20); }
+    return '<div class="a-root">' + topbar() + topbarPanel() + impactBanner() +
+      '<div class="a-shell">' +
+      (state.mode === "impact" ? impactLayout() :
+        '<div class="' + bodyCls + '">' +
+          '<main class="a-main ' + (state.mode === "coverage" ? "coverage-mode" : "graph-mode") + '">' + (state.mode === "coverage" ? coverageView() : graphView()) + '</main>' +
+          '<button class="a-drawer-handle" data-act="drawer" data-val="open" aria-label="打开详情">详情</button>' +
+          '<aside class="drawer a-drawer ' + ds + '" aria-label="' + kindLabel + '">' +
+            '<div class="drawer-bar"><span class="db-kind">' + kindLabel + '</span><span class="db-title">' + esc(titleLabel) + "</span>" +
+            '<button class="tb-btn" data-act="drawer" data-val="pin" title="' + (pinned ? "取消固定" : "固定到右侧") + '">' + (pinned ? "取消固定" : "固定") + "</button>" +
+            '<button class="tb-btn" data-act="drawer" data-val="close" title="收起" aria-label="收起侧边栏">' + ICON.close + "</button></div>" +
+            '<div class="sb">' + detailView() + "</div>" +
+          '</aside>' +
+        '</div>') +
+      '</div></div>' + (state.modal ? modalView() : "");
+  }
+  function modalView(){
+    var m = state.modal; if (!m) return "";
+    var kind = m.kind, target = m.target;
+    var d = kind === "add-premise" || kind === "overturn" ? findDecision(target) : null;
+    var t = kind === "edit-ticket" || kind === "comment" || kind === "new-ticket" ? findTicket(target) : null;
+    var p = kind === "judge-premise" ? findPremise(target) : null;
+    var title = { "add-premise":"加前提", "judge-premise":"判前提", "overturn":"推翻决定", "edit-ticket":"改票", "comment":"改评论", "new-ticket":"新建票" }[kind] || "操作";
+    var sub = d ? d.id + " · " + trunc(decisionStatement(d), 36) : t ? "#" + t.id + " · " + trunc(ticketTitle(t), 36) : p ? p.id + " · " + trunc(p.statement, 36) : "";
+    var body = "";
+    if (kind === "add-premise") body = '<label>陈述</label><textarea name="statement" required placeholder="一句可被证伪的话"></textarea><label>证据</label><input name="evidence" placeholder="#142 或 中台/设计.md 或 原话"><p class="note">写一条 premise.add 事件。状态从 未验 开始。</p>';
+    if (kind === "judge-premise") body = '<label>判定</label><div class="radio-row"><label><input type="radio" name="verdict" value="成立" ' + (p && p.state === "成立" ? "checked" : "") + '>成立</label><label><input type="radio" name="verdict" value="已破" ' + (!p || p.state === "已破" ? "checked" : "") + '>已破</label><label><input type="radio" name="verdict" value="未知" ' + (p && p.state === "未知" ? "checked" : "") + '>未知</label></div><label>证据</label><input name="evidence" value="' + esc(p && p.evidence && p.evidence[0] ? p.evidence[0] : "") + '"><label>理由</label><textarea name="reason" required placeholder="三个月后能看懂当时的判断"></textarea><p class="note">写一条 premise.judge 事件。判已破会触发影响清单，但系统不会自动改决定。</p>';
+    if (kind === "overturn") body = '<label>新决定的一句话</label><textarea name="statement" required placeholder="写定了什么，不写「见正文」"></textarea><label>来源票</label><input name="sourceTicket" placeholder="#142"><p class="note">旧决定标 superseded，新决定取代它。旧决定不重开。</p>';
+    if (kind === "edit-ticket") body = '<label>标题</label><input name="title" value="' + esc(t ? t.title : "") + '"><label>拆票理由</label><textarea name="splitReason">' + esc(t ? t.splitReason : "") + "</textarea>";
+    if (kind === "comment") body = '<label>评论正文</label><textarea name="body" required placeholder="写给人看的评论"></textarea>';
+    if (kind === "new-ticket") body = '<label>标题</label><input name="title" required><label>票型</label><select name="type"><option value="grilling">grilling</option><option value="research">research</option><option value="prototype">prototype</option><option value="task">task</option></select><label>拆票理由</label><textarea name="splitReason" required placeholder="为什么从这条决定拆出来"></textarea><label>覆盖第几句（逗号隔开）</label><input name="covers" placeholder="8"></label>';
+    return '<div class="modal-wrap"><div class="modal-backdrop" data-act="close-modal"></div><div class="modal"><div class="modal-head"><div><h3>' + title + '</h3><p class="sub">' + esc(sub) + '</p></div><button class="modal-close" data-act="close-modal" aria-label="关闭">×</button></div>' +
+      '<form data-form="' + kind + '" data-target="' + esc(target) + '">' + body + '<div class="modal-actions"><button type="button" class="btn" data-act="close-modal">取消</button><button type="submit" class="btn primary">写入事件</button></div></form></div></div>';
+  }
+
+  /* ---------- 动作 ---------- */
+  function toast(msg){
+    state.toast = msg;
+    var t = el("toast"); if (t){ t.textContent = msg; t.classList.add("on"); }
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ state.toast = ""; var x = el("toast"); if (x) x.classList.remove("on"); }, 2600);
+  }
+  function nextImpact(){
+    var keys = D.impact.items.map(function(i){ return i.key; });
+    var i = keys.indexOf(state.sel);
+    state.sel = keys[(i + 1 + keys.length) % keys.length];
+    render();
+  }
+  function render(){
+    var app = el("app");
+    app.innerHTML = viewA();
+    try {
+      var u = new URL(location.href);
+      u.searchParams.delete("variant");
+      if (state.mapId === 139) u.searchParams.delete("map"); else u.searchParams.set("map", state.mapId);
+      if (state.sel) u.searchParams.set("sel", state.sel);
+      if (state.mode !== "graph") u.searchParams.set("mode", state.mode); else u.searchParams.delete("mode");
+      u.searchParams.delete("old");
+      if (state.demo.size) u.searchParams.set("demo", Array.from(state.demo).join(",")); else u.searchParams.delete("demo");
+      if (state.filter) u.searchParams.set("filter", state.filter); else u.searchParams.delete("filter");
+      if (state.drawer !== "closed") u.searchParams.set("drawer", state.drawer); else u.searchParams.delete("drawer");
+      if (state.top !== "closed") u.searchParams.set("top", "1"); else u.searchParams.delete("top");
+      history.replaceState(null, "", u.toString());
+    } catch (e) { /* file:// 下有的浏览器不让改地址，原型照样能点 */ }
+    requestAnimationFrame(function(){
+      if (state.pendingFocus){
+        if (state.pendingFocus === "archive-top"){
+          var head = document.querySelector(".archive-head");
+          var headScroller = head ? head.closest(".a-drawer, .impact-side, .b-center, .c-context, .c-main") : null;
+          if (headScroller) headScroller.scrollTop = 0;
+        } else {
+          var target = null;
+          document.querySelectorAll("[data-focus]").forEach(function(n){ if (n.getAttribute("data-focus") === state.pendingFocus) target = n; });
+          if (target){
+            var scroller = target.closest(".a-drawer, .impact-side, .b-center, .c-context, .c-main");
+            if (scroller && scroller.contains(target)){
+              var sticky = scroller.querySelector(".drawer-bar");
+              var stickyH = sticky ? sticky.getBoundingClientRect().height : 0;
+              var top = target.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - stickyH - 8;
+              scroller.scrollTop = Math.max(0, top);
+            } else {
+              target.scrollIntoView({block:"start", inline:"nearest"});
+            }
+          }
+        }
+        state.pendingFocus = null;
+      }
+      if (!document.querySelector(".graph-a")) return;
+      if (!state.viewA) initialViewA(); else applyViewA();
+    });
+  }
+  document.addEventListener("click", function(e){
+    var n = e.target.closest("[data-act]");
+    if (!n) return;
+    var act = n.getAttribute("data-act"), val = n.getAttribute("data-val") || "", arg = n.getAttribute("data-arg") || "";
+    if (act === "map"){ switchMap(val); return; }
+    if (act === "select"){
+      var fromGraph = !!(e.target.closest && e.target.closest(".graph-a"));
+      state.sel = val;
+      state.pendingFocus = (val.indexOf("ticket:") === 0 || (fromGraph && val.indexOf("decision:") === 0)) ? "archive-top" : val;
+      if (state.drawer !== "pinned") state.drawer = "open";
+      render(); return;
+    }
+    if (act === "drawer"){
+      if (val === "open") state.drawer = "open";
+      else if (val === "close") state.drawer = "closed";
+      else if (val === "pin") state.drawer = state.drawer === "pinned" ? "open" : "pinned";
+      render(); return;
+    }
+    if (act === "top"){
+      if (val === "toggle") state.top = state.top === "open" ? "closed" : "open";
+      else if (val === "close") state.top = "closed";
+      render(); return;
+    }
+    if (act === "theme"){ setThemePref(val); return; }
+    if (act === "mode"){ state.mode = val; render(); return; }
+    if (act === "zoomA"){
+      if (val === "fit") fitViewA();
+      else zoomViewA(val === "in" ? 1.25 : 1 / 1.25);
+      return;
+    }
+    if (act === "signal"){ toggleSignal(val); return; }
+    if (act === "clear-filter"){ state.filter = null; render(); return; }
+    if (act === "process"){ state.processed[val] = arg; toast("已写事件：影响清单 I-0001 · " + val + " → " + arg); render(); return; }
+    if (act === "undo"){ delete state.processed[val]; render(); return; }
+    if (act === "next-impact"){ nextImpact(); return; }
+    if (act === "modal"){ state.modal = {kind: val, target: arg}; render(); return; }
+    if (act === "close-modal"){ state.modal = null; render(); return; }
+  });
+  document.addEventListener("pointerdown", function(e){
+    var wrap = e.target.closest && e.target.closest(".graph-a");
+    if (!wrap) return;
+    if (e.target.closest(".graph-a-tools") || e.target.closest("[data-act]")) return;
+    if (!state.viewA) fitViewA();
+    var v = state.viewA || {x:0,y:0,k:1};
+    state.dragA = {kind:"pan", sx:e.clientX, sy:e.clientY, ox:v.x, oy:v.y, moved:false};
+    document.body.classList.add("dragging-a");
+    e.preventDefault();
+  });
+  document.addEventListener("pointermove", function(e){
+    var d = state.dragA; if (!d) return;
+    var dx = e.clientX - d.sx, dy = e.clientY - d.sy;
+    if (!d.moved && Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
+    if (d.kind === "pan"){
+      if (!state.viewA) return;
+      state.viewA = {k:state.viewA.k, x:d.ox + dx, y:d.oy + dy};
+      applyViewA();
+    }
+  });
+  document.addEventListener("pointerup", function(){
+    var d = state.dragA; if (!d) return;
+    state.dragA = null;
+    document.body.classList.remove("dragging-a");
+  });
+  document.addEventListener("pointercancel", function(){
+    if (state.dragA){ state.dragA = null; document.body.classList.remove("dragging-a"); }
+  });
+  document.addEventListener("wheel", function(e){
+    var wrap = e.target.closest && e.target.closest(".graph-a");
+    if (!wrap) return;
+    if (!state.viewA) fitViewA();
+    if (!state.viewA) return;
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey){
+      var rect = wrap.getBoundingClientRect();
+      var px = e.clientX - rect.left, py = e.clientY - rect.top;
+      var k = Math.min(2.4, Math.max(0.2, state.viewA.k * Math.exp(-Math.max(-40, Math.min(40, e.deltaY)) * 0.01)));
+      var wx = (px - state.viewA.x) / state.viewA.k, wy = (py - state.viewA.y) / state.viewA.k;
+      state.viewA = {k:k, x:px - wx * k, y:py - wy * k};
+      setZoomLabelA();
+    } else {
+      state.viewA = {k:state.viewA.k, x:state.viewA.x - e.deltaX, y:state.viewA.y - e.deltaY};
+    }
+    applyViewA();
+  }, {passive:false});
+  document.addEventListener("dblclick", function(e){
+    var wrap = e.target.closest && e.target.closest(".graph-a");
+    if (wrap && !e.target.closest("[data-act]")) fitViewA();
+  });
+  function toggleSignal(key){
+    var s = signalByKey(key); if (!s) return;
+    var n = signalCount(s);
+    if (n === 0 && !state.demo.has(key)){
+      state.demo.add(key); state.filter = key; toast("已造一个示例：" + signalLabel(s)); render(); return;
+    }
+    if (state.demo.has(key) && n === 1){
+      state.demo.delete(key);
+    }
+    state.filter = state.filter === key ? null : key;
+    render();
+  }
+  document.addEventListener("submit", function(e){
+    var f = e.target.closest("form[data-form]"); if (!f) return;
+    e.preventDefault();
+    var kind = f.getAttribute("data-form"), target = f.getAttribute("data-target");
+    var fd = new FormData(f);
+    if (kind === "add-premise"){
+      var p = { id: "P-" + String(900 + allPremises().length), decision: target, statement: fd.get("statement"), state: "未验", evidence: [fd.get("evidence") || "手工录入"], lastJudge: null };
+      local.premises.push(p); toast("已写 premise.add：" + p.id + " · 未验");
+    } else if (kind === "judge-premise"){
+      var pre = findPremise(target); if (pre){
+        pre.state = fd.get("verdict") || "未知";
+        pre.lastJudge = {verdict: pre.state, by: "human:运营者", at: "2026-11-10 17:30", reason: fd.get("reason") || ""};
+        if (pre.state === "已破") toast("已写 premise.judge：已破。影响清单会在下一步重算，决定不会自动改。");
+        else toast("已写 premise.judge：" + pre.state);
+      }
+    } else if (kind === "overturn"){
+      var old = findDecision(target); if (old){
+        local.status[old.id] = "superseded";
+        var nd = { id: "D-" + String(900 + local.decisions.length), statement: fd.get("statement"), status: "active", supersedes: old.id, outputs: [], base: "D-9xx", isBase: true, root: false, layer: "new", sourceTicket: fd.get("sourceTicket") || null, premises: [] };
+        local.decisions.push(nd); state.sel = "decision:" + nd.id;
+        toast("旧决定标 superseded，新决定 " + nd.id + " 已建");
+      }
+    } else if (kind === "edit-ticket"){
+      var tk = findTicket(target); if (tk){ tk.title = fd.get("title") || tk.title; tk.splitReason = fd.get("splitReason") || tk.splitReason; toast("已写 issue.edit v2"); }
+    } else if (kind === "comment"){
+      local.comments[target] = local.comments[target] || []; local.comments[target].push(fd.get("body")); toast("已写 comment.create");
+    } else if (kind === "new-ticket"){
+      var id = "I-" + String(900 + local.tickets.length);
+      var covers = String(fd.get("covers") || "").split(/[,，\s]+/).filter(Boolean).map(Number);
+      local.tickets.push({ id: id, title: fd.get("title"), type: fd.get("type"), state: "open", work: "未领取", mapId: D.map.id, derivedFrom: [rootId()], produces: [], covers: covers, splitReason: fd.get("splitReason"), url: "#", labels: ["wayfinder:" + fd.get("type")] });
+      state.sel = "ticket:" + id; toast("已写 issue.create：" + id);
+    }
+    state.modal = null; render();
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape"){
+      if (state.modal){ state.modal = null; render(); return; }
+      if (state.top !== "closed"){ state.top = "closed"; render(); return; }
+      if (state.drawer !== "closed" && state.drawer !== "pinned"){ state.drawer = "closed"; render(); return; }
+    }
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (["INPUT","TEXTAREA","SELECT"].indexOf(tag) >= 0) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight"){
+      if (MAP_ORDER.length < 2) return;
+      var i = MAP_ORDER.indexOf(state.mapId);
+      var next = MAP_ORDER[(i + (e.key === "ArrowRight" ? 1 : -1) + MAP_ORDER.length) % MAP_ORDER.length];
+      switchMap(next); e.preventDefault();
+    }
+  });
+  if (window.matchMedia){
+    var mq = matchMedia("(prefers-color-scheme: dark)");
+    var onScheme = function(){
+      if (themePref() !== "auto") return;
+      document.documentElement.setAttribute("data-theme", mq.matches ? "dark" : "light");
+    };
+    if (mq.addEventListener) mq.addEventListener("change", onScheme);
+    else if (mq.addListener) mq.addListener(onScheme);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
