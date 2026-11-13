@@ -19,6 +19,14 @@ from .util import (
 
 DT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dt"))
 
+_CHECK_LABELS = {
+    "closed_without_merge": "PR 关闭未合并",
+    "sha_mismatch": "SHA 不符",
+    "gh_unavailable": "gh 调不到",
+    "merged": "已合并",
+    "waiting_merge": "还没合并",
+}
+
 
 class Client:
     def __init__(self, port):
@@ -137,6 +145,20 @@ def _print_issue(view):
             print(f"未关闭阻塞：{'、'.join(view['blocked_by_open'])}")
         if view.get("produced_decisions"):
             print("产出决定：" + "、".join(d["id"] for d in view["produced_decisions"]))
+        record = view.get("close_record")
+        if record:
+            line = (f"待关票记录：{record['id']} [{record['status']}]"
+                    f"  PR #{record['pr']}  sha {record['sha'][:7]}"
+                    f"  写入 {record['written_by']} {record['written_at']}")
+            if record.get("verify"):
+                line += f"  核对：{record['verify']}"
+            last = record.get("last_check")
+            if last:
+                result = _CHECK_LABELS.get(last["result"], last["result"])
+                line += f"  最近核对：{result}"
+                if last.get("detail"):
+                    line += f"（{last['detail']}）"
+            print(line)
     else:
         print(f"拆票理由：{issue.get('split_rationale') or '未记录'}")
         root = view.get("root")
@@ -388,7 +410,62 @@ def cmd_issue_state(args):
         state = "closed"
     elif args.action == "reopen":
         state = "open"
-    _post(args, "issue.state", {"id": args.id, "state": state})
+    payload = {"id": args.id, "state": state}
+    if getattr(args, "force", False):
+        payload["force"] = True
+    _post(args, "issue.state", payload)
+    return 0
+
+
+def cmd_close_prepare(args):
+    client = client_for(args)
+    try:
+        with open(args.payload, encoding="utf-8") as f:
+            payload = json.load(f)
+    except OSError as exc:
+        raise DtError(f"读不了 payload 文件：{exc}", EXIT_USAGE)
+    except json.JSONDecodeError as exc:
+        raise DtError(f"payload 文件不是合法 JSON：{exc}", EXIT_USAGE)
+    if not isinstance(payload, dict):
+        raise DtError("payload 不是 JSON 对象", EXIT_USAGE)
+    result = client.post("/command", {
+        "op": "close.prepare",
+        "args": {
+            "ticket": args.ticket,
+            "pr": args.pr,
+            "sha": args.sha,
+            "comments": payload.get("comments") or [],
+            "decisions": payload.get("decisions") or [],
+        },
+        "actor": args.actor or current_actor(),
+        "reason": getattr(args, "reason", None),
+    })
+    event = result["event"]
+    record = event["payload"]["record"]
+    ids = "、".join(d["id"] for d in event["payload"]["decisions"]) or "无"
+    print(f"{record} 已写入：票 {args.ticket}，PR #{args.pr}，等合并")
+    print(f"决定草稿：{ids}")
+    _link_pr(args.pr)
+    return 0
+
+
+def _link_pr(pr):
+    command = f"orca worktree set --worktree current --pr {pr}"
+    try:
+        result = subprocess.run(
+            ["orca", "worktree", "set", "--worktree", "current", "--pr", str(pr)],
+            capture_output=True, text=True, timeout=8)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        eprint(f"注意：orca 没记上 PR #{pr}（{exc}）。手动跑：{command}")
+        return
+    if result.returncode != 0:
+        output = (result.stderr or result.stdout).strip()
+        message = output.splitlines()[0] if output else "orca 返回失败"
+        eprint(f"注意：orca 没记上 PR #{pr}：{message}。手动跑：{command}")
+
+
+def cmd_close_revoke(args):
+    _post(args, "close.revoke", {"ticket": args.ticket})
     return 0
 
 
@@ -670,10 +747,14 @@ def build_parser():
     s.add_argument("id")
     s.add_argument("state", choices=["open", "closed"])
     s.set_defaults(func=cmd_issue_state)
-    for name in ("close", "reopen"):
-        x = isub.add_parser(name)
-        x.add_argument("id")
-        x.set_defaults(func=cmd_issue_state)
+    x = isub.add_parser("close")
+    x.add_argument("id")
+    x.add_argument("--force", action="store_true",
+                   help="运营者强制关票，并把待关票记录标失效")
+    x.set_defaults(func=cmd_issue_state)
+    x = isub.add_parser("reopen")
+    x.add_argument("id")
+    x.set_defaults(func=cmd_issue_state)
     l = isub.add_parser("label")
     l.add_argument("id")
     l.add_argument("--add", action="append")
@@ -797,6 +878,19 @@ def build_parser():
     cl.add_argument("case")
     cl.add_argument("--reason")
     cl.set_defaults(func=cmd_impact)
+
+    p = sub.add_parser("close", help="待关票记录：PR 合并后自动关票")
+    csub = p.add_subparsers(dest="action", required=True)
+    cp = csub.add_parser("prepare", help="开完 PR 后写待关票记录")
+    cp.add_argument("ticket")
+    cp.add_argument("--pr", type=int, required=True)
+    cp.add_argument("--sha", required=True, help="合并时要比对的 PR head SHA")
+    cp.add_argument("--payload", required=True,
+                    help="JSON 文件：comments 四条、decisions 决定草稿")
+    cp.set_defaults(func=cmd_close_prepare)
+    cr = csub.add_parser("revoke", help="撤回还没合并的待关票记录")
+    cr.add_argument("ticket")
+    cr.set_defaults(func=cmd_close_revoke)
 
     p = sub.add_parser("status", help="看工作状态")
     p.add_argument("action", nargs="?", choices=["sync"])

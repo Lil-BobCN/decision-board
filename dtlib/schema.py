@@ -17,6 +17,7 @@ OPS_V2 = OPS_V1 | {
 }
 OPS_V3 = OPS_V2 | {"decision.annotate"}
 OPS_V4 = OPS_V3 | {"premise.annotate"}
+OPS_V5 = OPS_V4 | {"close.prepare", "close.revoke", "close.mark", "issue.close"}
 
 TICKET_TYPES = ("grilling", "research", "prototype", "task")
 VERDICTS = ("成立", "已破", "未知")
@@ -100,6 +101,18 @@ _SCHEMAS[3]["decision.annotate"] = ({"rationale"}, {"source"})
 _SCHEMAS[4] = dict(_SCHEMAS[3])
 _SCHEMAS[4]["premise.annotate"] = (set(), set())
 
+# v5 加待关票记录和自动关票；其余事件按 v4 折叠。
+_SCHEMAS[5] = dict(_SCHEMAS[4])
+_SCHEMAS[5]["issue.state"] = (
+    {"state"},
+    {"impact_case", "impact_item", "impact_action", "impact_merged_into", "close_record"},
+)
+_SCHEMAS[5]["close.prepare"] = ({"record", "pr", "sha", "comments", "decisions"}, set())
+_SCHEMAS[5]["close.revoke"] = ({"record"}, set())
+_SCHEMAS[5]["close.mark"] = ({"record"}, {"status", "verify", "check", "detail"})
+_SCHEMAS[5]["issue.close"] = ({"record", "pr", "comments", "decisions"}, set())
+
+_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 _TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
 _ACTOR_RE = re.compile(r"^(human|agent):.+$")
 
@@ -298,6 +311,32 @@ def _validate_payload_types(op, p, where, version=2):
         _expect(p["action"] in ("仍成立", "保留"), "impact.act 的 action 只能是仍成立或保留", where)
     elif op == "impact.close":
         pass
+    elif op == "close.prepare":
+        _expect(isinstance(p["record"], str) and p["record"], "record 为空", where)
+        _expect(isinstance(p["pr"], int) and p["pr"] > 0, "pr 不是正整数", where)
+        _expect(isinstance(p["sha"], str) and _SHA_RE.match(p["sha"]),
+                "sha 不是 7 到 40 位小写十六进制", where)
+        _validate_close_comments(p["comments"], where, with_ids=False)
+        _validate_decision_drafts(p["decisions"], where)
+    elif op == "close.revoke":
+        _expect(isinstance(p["record"], str) and p["record"], "record 为空", where)
+    elif op == "close.mark":
+        _expect(isinstance(p["record"], str) and p["record"], "record 为空", where)
+        _expect("status" in p or "verify" in p, "close.mark 至少改 status 或 verify", where)
+        if "status" in p:
+            _expect(p["status"] == "过期", "close.mark 的 status 只能是过期", where)
+        if "verify" in p:
+            _expect(p["verify"] in (None, "无法核对"),
+                    "close.mark 的 verify 只能是 null 或无法核对", where)
+        if "check" in p:
+            _expect(isinstance(p["check"], str) and p["check"], "check 为空", where)
+        if "detail" in p:
+            _expect(isinstance(p["detail"], str), "detail 不是字符串", where)
+    elif op == "issue.close":
+        _expect(isinstance(p["record"], str) and p["record"], "record 为空", where)
+        _expect(isinstance(p["pr"], int) and p["pr"] > 0, "pr 不是正整数", where)
+        _validate_close_comments(p["comments"], where, with_ids=True)
+        _validate_decision_drafts(p["decisions"], where)
     # 影响字段的形态
     if "impact_item" in p:
         item = p["impact_item"]
@@ -312,3 +351,38 @@ def _validate_payload_types(op, p, where, version=2):
             _expect(_str_list(item.get("relations", [])), "impact_items.relations 不对", where)
     if "impact_action" in p:
         _expect(p["impact_action"] in IMPACT_ACTIONS, "impact_action 不在词表里", where)
+
+
+def _validate_close_comments(comments, where, with_ids):
+    _expect(isinstance(comments, list) and len(comments) == 4,
+            "comments 必须正好四条", where)
+    for item in comments:
+        if with_ids:
+            _expect(isinstance(item, dict) and set(item) == {"id", "body"},
+                    "comment 字段应为 id、body", where)
+            _expect(isinstance(item["id"], str) and item["id"].startswith("C-"),
+                    "comment.id 不是 C- 号", where)
+            body = item["body"]
+        else:
+            _expect(isinstance(item, str), "comment 不是字符串", where)
+            body = item
+        _expect(isinstance(body, str) and body.strip(), "comment 正文为空", where)
+
+
+def _validate_decision_drafts(drafts, where):
+    _expect(isinstance(drafts, list), "decisions 不是数组", where)
+    seen = set()
+    for draft in drafts:
+        _expect(isinstance(draft, dict), "决定草稿不是对象", where)
+        allowed = {"id", "statement", "output_files", "rationale"}
+        _expect(set(draft) <= allowed, f"决定草稿多字段 {sorted(set(draft) - allowed)}", where)
+        _expect({"id", "statement", "output_files"} <= set(draft), "决定草稿缺字段", where)
+        _expect(isinstance(draft["id"], str) and draft["id"].startswith("D-"),
+                "决定草稿 id 不是 D- 号", where)
+        _expect(draft["id"] not in seen, f"决定草稿编号重复：{draft['id']}", where)
+        seen.add(draft["id"])
+        _expect(isinstance(draft["statement"], str) and draft["statement"].strip(),
+                "决定草稿陈述为空", where)
+        _expect(_str_list(draft["output_files"]), "决定草稿 output_files 不对", where)
+        if "rationale" in draft:
+            _expect(isinstance(draft["rationale"], str), "决定草稿 rationale 不是字符串", where)

@@ -1,8 +1,13 @@
 """把命令翻译成一条事件。服务是唯一调用方。"""
 from __future__ import annotations
 
-from .fold import current_root, open_blockers, stale_covers
-from .util import DtError, now_ts
+import re
+
+from .fold import active_close_record, current_root, open_blockers, stale_covers
+from .util import DtError, UNSET, now_ts
+
+_PLACEHOLDER_RE = re.compile(r"\{\{D(\d+)\}\}")
+_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 class Board:
@@ -34,8 +39,14 @@ class Board:
     def next_impact_id(self):
         return self._next("impact", "IC")
 
-    def _event(self, op, target, payload, actor, reason=None):
-        version = {"decision.annotate": 3, "premise.annotate": 4}.get(op, 2)
+    def next_close_id(self):
+        return self._next("close", "CL")
+
+    def _event(self, op, target, payload, actor, reason=None, version=None):
+        if version is None:
+            version = {"decision.annotate": 3, "premise.annotate": 4}.get(op, 2)
+            if op in ("close.prepare", "close.revoke", "close.mark", "issue.close"):
+                version = 5
         return {
             "v": version,
             "seq": self.store.last_seq + 1,
@@ -119,13 +130,27 @@ class Board:
             raise DtError(f"这些决定不是票 {iid} 的推断来源：{'、'.join(unknown)}", 2)
         return self._event("issue.confirm_derived", iid, {"decisions": picked}, actor)
 
-    def issue_state(self, actor, iid, state, reason=None, impact=None, merged_into=None):
+    def issue_state(self, actor, iid, state, reason=None, impact=None, merged_into=None,
+                    force=False):
         payload = {"state": state}
+        version = None
+        if force and not actor.startswith("human:"):
+            raise DtError("--force 只给运营者", 2)
+        issue = self.state["issues"].get(iid)
+        if state == "closed" and issue and issue["kind"] == "ticket":
+            record = active_close_record(self.state, iid)
+            if record:
+                if not force:
+                    raise DtError(
+                        f"票 {iid} 有待关票记录 {record['id']}（PR #{record['pr']}），"
+                        f"合并后服务自动关票；要强制关票加 --force")
+                payload["close_record"] = record["id"]
+                version = 5
         if impact:
             payload.update(impact)
         if merged_into:
             payload["impact_merged_into"] = merged_into
-        return self._event("issue.state", iid, payload, actor, reason)
+        return self._event("issue.state", iid, payload, actor, reason, version=version)
 
     def issue_label(self, actor, iid, add, remove):
         return self._event("issue.label", iid, {"add": list(add), "remove": list(remove)}, actor)
@@ -290,6 +315,115 @@ class Board:
         if not reason_text or not reason_text.strip():
             raise DtError("判定理由为空", 2)
         return self._event("premise.annotate", pid, {}, actor, reason_text)
+
+    # ---------- 待关票记录 ----------
+
+    def close_prepare(self, actor, ticket_id, pr, sha, comments, decisions, reason=None):
+        ticket = self.state["issues"].get(ticket_id)
+        if not ticket or ticket["kind"] != "ticket":
+            raise DtError(f"找不到票 {ticket_id}")
+        if ticket["state"] != "open":
+            raise DtError(f"票 {ticket_id} 已关闭，不能再写待关票记录", 2)
+        if not isinstance(pr, int) or pr <= 0:
+            raise DtError("PR 号必须是正整数", 2)
+        if not isinstance(sha, str) or not _SHA_RE.match(sha):
+            raise DtError("SHA 必须是 7 到 40 位小写十六进制", 2)
+        if not isinstance(decisions, list):
+            raise DtError("决定草稿不是数组", 2)
+        if not isinstance(comments, list) or len(comments) != 4:
+            raise DtError("待关票记录必须正好四条评论", 2)
+        prepared = []
+        next_number = self.state["counters"]["decision"]
+        for draft in decisions:
+            if not isinstance(draft, dict):
+                raise DtError("决定草稿不是对象", 2)
+            statement = (draft.get("statement") or "").strip()
+            if not statement:
+                raise DtError("决定草稿缺陈述", 2)
+            output_files = draft.get("output_files") or []
+            if not isinstance(output_files, list):
+                raise DtError("决定草稿的 output_files 不是数组", 2)
+            prepared.append({
+                "id": f"D-{next_number:04d}",
+                "statement": statement,
+                "output_files": [str(f) for f in output_files],
+                "rationale": draft.get("rationale") or "",
+            })
+            next_number += 1
+        rendered = [self._render_placeholders(text, prepared) for text in comments]
+        record_id = self.next_close_id()
+        return self._event("close.prepare", ticket_id, {
+            "record": record_id,
+            "pr": pr,
+            "sha": sha,
+            "comments": rendered,
+            "decisions": prepared,
+        }, actor, reason)
+
+    def _render_placeholders(self, text, drafts):
+        if not isinstance(text, str) or not text.strip():
+            raise DtError("评论正文为空", 2)
+        by_number = {str(i): d["id"] for i, d in enumerate(drafts, start=1)}
+
+        def replace(match):
+            number = match.group(1)
+            if number not in by_number:
+                raise DtError(
+                    f"评论里的占位符 {{{{D{number}}}}} 没有对应的决定草稿", 2)
+            return by_number[number]
+
+        rendered = _PLACEHOLDER_RE.sub(replace, text)
+        if "{{D" in rendered:
+            raise DtError("评论里有没替换的占位符，写法是 {{D1}}、{{D2}}", 2)
+        return rendered
+
+    def close_revoke(self, actor, ticket_id, reason=None):
+        record = active_close_record(self.state, ticket_id)
+        if not record:
+            raise DtError(f"票 {ticket_id} 没有等合并的待关票记录")
+        return self._event("close.revoke", ticket_id, {"record": record["id"]}, actor, reason)
+
+    def close_mark(self, actor, ticket_id, record_id, status=None, verify=UNSET,
+                   check=None, detail=None):
+        record = self.state["close_records"].get(record_id)
+        if not record:
+            raise DtError(f"找不到待关票记录 {record_id}")
+        if record["ticket"] != ticket_id:
+            raise DtError(f"待关票记录 {record_id} 不属于票 {ticket_id}")
+        payload = {"record": record_id}
+        if status is not None:
+            payload["status"] = status
+        if verify is not UNSET:
+            payload["verify"] = verify
+        if "status" not in payload and "verify" not in payload:
+            raise DtError("close mark 至少改 status 或 verify", 2)
+        if check is not None:
+            payload["check"] = check
+        if detail is not None:
+            payload["detail"] = detail
+        return self._event("close.mark", ticket_id, payload, actor)
+
+    def issue_close(self, actor, record_id):
+        record = self.state["close_records"].get(record_id)
+        if not record:
+            raise DtError(f"找不到待关票记录 {record_id}")
+        if record["status"] != "等合并":
+            raise DtError(f"待关票记录 {record_id} 是{record['status']}，不能展开")
+        ticket = self.state["issues"].get(record["ticket"])
+        if not ticket or ticket["state"] != "open":
+            raise DtError(f"票 {record['ticket']} 已关闭")
+        next_comment = self.state["counters"]["comment"]
+        comments = []
+        for body in record["comments"]:
+            comments.append({"id": f"C-{next_comment:04d}", "body": body})
+            next_comment += 1
+        decisions = [dict(d) for d in record["decisions"]]
+        return self._event("issue.close", record["ticket"], {
+            "record": record_id,
+            "pr": record["pr"],
+            "comments": comments,
+            "decisions": decisions,
+        }, actor)
 
     # ---------- 影响清单 ----------
 
@@ -529,6 +663,7 @@ def dispatch(board, op, args, actor, reason=None):
         return board.issue_state(
             actor, args["id"], args["state"], reason=reason,
             merged_into=args.get("merged_into"),
+            force=bool(args.get("force")),
         )
     if op == "issue.label":
         return board.issue_label(actor, args["id"], args.get("add") or [], args.get("remove") or [])
@@ -584,5 +719,19 @@ def dispatch(board, op, args, actor, reason=None):
             reason=reason, **options)
     if op == "impact.close":
         return board.impact_close(actor, args["case"], reason or "")
+    if op == "close.prepare":
+        return board.close_prepare(
+            actor, args["ticket"], args["pr"], args["sha"],
+            args.get("comments") or [], args.get("decisions") or [], reason=reason)
+    if op == "close.revoke":
+        return board.close_revoke(actor, args["ticket"], reason)
+    if op == "close.mark":
+        verify = args["verify"] if "verify" in args else UNSET
+        return board.close_mark(
+            actor, args["ticket"], args["record"],
+            status=args.get("status"), verify=verify,
+            check=args.get("check"), detail=args.get("detail"))
+    if op == "issue.close":
+        return board.issue_close(actor, args["record"])
     raise DtError(f"不认识命令 {op}", 2)
 

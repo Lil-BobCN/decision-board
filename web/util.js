@@ -131,7 +131,7 @@
   function workTone(work) {
     if (work === "已完成") return "green";
     if (work === "进行中") return "accent";
-    if (work === "等待人") return "amber";
+    if (work === "等待人" || work === "等合并") return "amber";
     if (work === "被挡") return "red";
     return "gray";
   }
@@ -139,7 +139,7 @@
   function workDot(work) {
     if (work === "已完成") return "done";
     if (work === "进行中") return "now";
-    if (work === "等待人" || work === "被挡") return "stuck";
+    if (work === "等待人" || work === "等合并" || work === "被挡") return "stuck";
     return "";
   }
 

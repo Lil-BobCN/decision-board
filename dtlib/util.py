@@ -25,6 +25,9 @@ EXIT_NAMES = {
     EXIT_UNKNOWN: "写入结果未知",
 }
 
+# 表示「调用方没传这个字段」，和 None 区分。
+UNSET = object()
+
 
 class DtError(Exception):
     """带退出码的错误。"""

@@ -45,7 +45,7 @@
         '<span class="sig-count' + (s.count ? "" : " zero") + '">' + s.count + "</span></button>" +
         '<div class="sig-hint">' + U.esc(s.hint) + "</div>";
     }).join("");
-    return '<div class="signal-panel"><h3>九类视觉信号</h3><div class="sig-list">' + items + "</div></div>";
+    return '<div class="signal-panel"><h3>' + (board.signals || []).length + ' 类视觉信号</h3><div class="sig-list">' + items + "</div></div>";
   }
 
   function signalChips(board) {
@@ -80,6 +80,13 @@
 
   function triggerLabel(t) {
     return { premise_broken: "前提判破", overturn: "决定被推翻", void: "决定作废", root_replaced: "终点换根" }[t] || t;
+  }
+
+  function checkLabel(t) {
+    return {
+      closed_without_merge: "PR 关闭未合并", sha_mismatch: "SHA 不符",
+      gh_unavailable: "gh 调不到", merged: "已合并", waiting_merge: "还没合并"
+    }[t] || t;
   }
 
   function decisionPanel(board, did, sel) {
@@ -313,6 +320,34 @@
         " · 这项" + U.esc(item.status) + (item.action ? "：" + U.esc(item.action) : "") + "</div></div>";
     }).join("");
 
+    var close = t.close_record;
+    var closeBody = "";
+    if (close) {
+      var rows = '<dt>记录</dt><dd>' + U.esc(close.id) + "</dd>" +
+        '<dt>状态</dt><dd>' + U.esc(close.status) + " · PR #" + U.esc(close.pr) + "</dd>" +
+        '<dt>head SHA</dt><dd><code class="mono" style="font-size:11px">' +
+        U.esc(String(close.sha || "").slice(0, 7)) + "</code></dd>" +
+        '<dt>写入</dt><dd>' + U.esc(close.written_by || "未记录") + " · " + U.esc(U.fmtTs(close.written_at)) + "</dd>";
+      if (close.verify) {
+        rows += '<dt>核对</dt><dd>' + U.esc(close.verify) + "</dd>";
+      }
+      if (close.last_check) {
+        rows += '<dt>最近核对</dt><dd>' + U.esc(checkLabel(close.last_check.result)) +
+          (close.last_check.detail ? " · " + U.esc(close.last_check.detail) : "") + "</dd>";
+      }
+      if (close.revoke_reason) {
+        rows += '<dt>说明</dt><dd>' + U.esc(close.revoke_reason) + "</dd>";
+      }
+      closeBody = '<dl class="sb-kv">' + rows + "</dl>";
+      if ((close.decisions || []).length) {
+        closeBody += '<div class="sb-quiet" style="margin-top:9px">决定草稿（合并后写入）</div>' +
+          close.decisions.map(function (d) {
+            return '<div class="prod-row"><span class="pr-id">' + U.esc(d.id) +
+              '</span><span class="pr-role">' + U.esc(d.statement) + "</span></div>";
+          }).join("");
+      }
+    }
+
     return '<div data-focus="ticket:' + U.esc(t.id) + '"><div class="sb-head">' +
       '<div class="sb-idrow"><span class="id">#' + U.esc(t.id) + "</span>" +
       '<span class="chip">' + U.esc(t.type) + "</span>" +
@@ -338,6 +373,7 @@
       section("05", "阻塞", blockBody) +
       section("06", "影响历史", impactRows || '<div class="sb-empty">没有影响记录。</div>') +
       section("07", "同步", syncLine) +
+      (closeBody ? section("08", "关票", closeBody) : "") +
       "</div>";
   }
 

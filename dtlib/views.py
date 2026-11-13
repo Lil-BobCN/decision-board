@@ -4,7 +4,8 @@ from __future__ import annotations
 import getpass
 
 from .fold import (
-    coverage_rows, current_root, decision_red, open_blockers, stale_covers,
+    coverage_rows, current_root, decision_red, latest_close_record,
+    open_blockers, stale_covers,
 )
 from .util import DtError
 
@@ -34,6 +35,7 @@ def issue_view(store, iid):
         view["stale_covers"] = stale_covers(state, issue)
         work = store.read_workstate().get("tickets", {}).get(iid)
         view["workstate"] = work
+        view["close_record"] = latest_close_record(state, iid)
     return view
 
 
@@ -142,6 +144,11 @@ SIGNALS = (
     ("impact-open", "影响清单未清", "red", "有开着的影响清单。逐项处理完再显式关闭。"),
     ("stuck-ticket", "工作卡住", "amber", "票在等人处理。去 orca 看终端，或在中台改票。"),
     ("sync-error", "同步异常", "red", "最近一次同步有失败项。重试或重新同步。"),
+    ("close-expired", "待关票记录过期", "red", "PR 关闭未合并，记录已过期。重新开 PR 后重写记录。"),
+    ("close-missing", "缺待关票记录", "amber", "PR 已合并，但这张票没有待关票记录。补记录，或由运营者强制关票。"),
+    ("close-sha", "关票 SHA 不符", "red", "合并的 PR head 与记录里的 SHA 不同，没有自动关票。确认后重写记录。"),
+    ("close-unverified", "关票无法核对", "amber", "调不到 gh，核对不了合并结果。检查 gh 登录，下一轮轮询会重试。"),
+    ("close-write-failed", "关票写入失败", "red", "服务写 issue.close 事件失败，记录还在，下一轮重试。看服务日志。"),
 )
 
 
@@ -262,7 +269,13 @@ def board_view(store, map_id=None):
 
     def ticket_entry(ticket):
         work = work_tickets.get(ticket["id"]) or {}
-        work_label = "已完成" if ticket["state"] == "closed" else (work.get("state") or "未领取")
+        record = latest_close_record(state, ticket["id"])
+        if ticket["state"] == "closed":
+            work_label = "已完成"
+        elif record and record["status"] == "等合并":
+            work_label = "等合并"
+        else:
+            work_label = work.get("state") or "未领取"
         comments = [
             c for c in state["comments"].values()
             if c["issue"] == ticket["id"] and not c["deleted"]
@@ -296,6 +309,8 @@ def board_view(store, map_id=None):
             "work_note": work.get("note"),
             "work_started_at": work.get("state_started_at"),
             "work_synced_at": work.get("last_synced_at"),
+            "pr": work.get("pr"),
+            "close_record": record,
             "produces": [d["id"] for d in decisions if d.get("source_ticket") == ticket["id"]],
             "comments": comments,
             "blocked_by_open": open_blockers(state, ticket["id"]),
@@ -443,7 +458,7 @@ def board_view(store, map_id=None):
 
     signals = _signals(
         map_id, ticket_entries, ticket_by_id, decision_entries,
-        rows, cases, map_history, sync_state,
+        rows, cases, map_history, sync_state, state, workstate,
     )
 
     counts = {
@@ -496,7 +511,7 @@ def board_view(store, map_id=None):
 
 
 def _signals(map_id, ticket_entries, ticket_by_id, decision_entries,
-             rows, cases, sync_history, sync_state):
+             rows, cases, sync_history, sync_state, state, workstate):
     decision_by_id = {d["id"]: d for d in decision_entries}
 
     orphan_tickets = [t["id"] for t in ticket_entries if not t["derived_from"]]
@@ -540,6 +555,31 @@ def _signals(map_id, ticket_entries, ticket_by_id, decision_entries,
     if sync_state == "失败" and not sync_targets:
         sync_targets = ["map:" + map_id]
 
+    records = [
+        r for r in state["close_records"].values()
+        if r["ticket"] in ticket_by_id
+    ]
+    expired = [r["ticket"] for r in records
+               if r["status"] == "过期"
+               and (r.get("last_check") or {}).get("result") != "sha_mismatch"]
+    sha_mismatch = [r["ticket"] for r in records
+                    if r["status"] == "过期"
+                    and (r.get("last_check") or {}).get("result") == "sha_mismatch"]
+    unverified = [r["ticket"] for r in records
+                  if r["status"] == "等合并" and r.get("verify") == "无法核对"]
+    close_errors = workstate.get("close_errors") or {}
+    write_failed = [r["ticket"] for r in records
+                    if r["status"] == "等合并" and r["id"] in close_errors]
+    with_record = {r["ticket"] for r in records}
+    missing = []
+    for tid, entry in (workstate.get("tickets") or {}).items():
+        if tid not in ticket_by_id or tid in with_record:
+            continue
+        if ticket_by_id[tid]["state"] != "open":
+            continue
+        if str((entry.get("pr") or {}).get("state") or "").lower() == "merged":
+            missing.append(tid)
+
     values = {
         "orphan-ticket": (["ticket:" + i for i in orphan_tickets], len(orphan_tickets)),
         "orphan-decision": (["decision:" + i for i in orphan_decisions], len(orphan_decisions)),
@@ -550,6 +590,11 @@ def _signals(map_id, ticket_entries, ticket_by_id, decision_entries,
         "impact-open": (impact_targets, len(open_cases)),
         "stuck-ticket": (["ticket:" + i for i in stuck], len(stuck)),
         "sync-error": (sync_targets, len(failed_refs) or (1 if sync_state == "失败" else 0)),
+        "close-expired": (["ticket:" + i for i in sorted(set(expired))], len(set(expired))),
+        "close-missing": (["ticket:" + i for i in sorted(set(missing))], len(set(missing))),
+        "close-sha": (["ticket:" + i for i in sorted(set(sha_mismatch))], len(set(sha_mismatch))),
+        "close-unverified": (["ticket:" + i for i in sorted(set(unverified))], len(set(unverified))),
+        "close-write-failed": (["ticket:" + i for i in sorted(set(write_failed))], len(set(write_failed))),
     }
     result = []
     for key, label, tone, hint in SIGNALS:

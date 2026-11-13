@@ -19,6 +19,7 @@ class WorkStatePoller:
         self.repo = repo
         self.interval = interval
         self.orca_bin = orca_bin
+        self.on_tickets = None
         self._stop = threading.Event()
         self._thread = None
         self._failures = 0
@@ -85,6 +86,11 @@ class WorkStatePoller:
         tickets = self.compute_tickets(worktrees)
         self._last = tickets
         self._write(offline=False, tickets=tickets)
+        if self.on_tickets is not None:
+            try:
+                self.on_tickets(tickets)
+            except Exception as exc:
+                self.store._log(f"自动关票检查失败：{exc}")
         return self.store.read_workstate()
 
     def _last_tickets(self):
@@ -107,13 +113,19 @@ class WorkStatePoller:
                 "last_synced_at": stamp,
                 "last_activity_at": entry.get("last_activity_at"),
                 "note": entry.get("note"),
+                "pr": entry.get("pr"),
             }
-        self.store.write_workstate({
+        data = {
             "updated_at": stamp,
             "offline": offline,
             "repo": self.repo,
             "tickets": merged,
-        })
+        }
+        # close_errors 等外部写入的字段不被快照覆盖
+        for key, value in old.items():
+            if key not in data:
+                data[key] = value
+        self.store.write_workstate(data)
 
     def compute_tickets(self, worktrees):
         state = self.store.state
@@ -154,8 +166,28 @@ class WorkStatePoller:
                 "state": status,
                 "last_activity_at": activity,
                 "note": note or None,
+                "pr": self._linked_pr(wts),
             }
         return result
+
+    def _linked_pr(self, worktrees):
+        """取一张票关联的 PR；多棵 worktree 时优先已合并的那条。"""
+        picked = None
+        for wt in worktrees:
+            pr = wt.get("linkedPR")
+            if not isinstance(pr, dict) or not pr.get("number"):
+                continue
+            entry = {
+                "number": pr["number"],
+                "state": pr.get("state"),
+                "title": pr.get("title"),
+                "url": pr.get("url"),
+            }
+            if str(pr.get("state") or "").lower() == "merged":
+                return entry
+            if picked is None:
+                picked = entry
+        return picked
 
     def _local_ticket_id(self, tid):
         """GitHub 号换成中台本地票号；本地号能直接命中时原样返回。"""

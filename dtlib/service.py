@@ -11,6 +11,7 @@ import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from .close import CloseWatcher
 from .commands import Board, dispatch
 from .importer import build_import_payload, detect_repo
 from .store import EventStore
@@ -58,6 +59,7 @@ class BoardService:
         self.lock = threading.RLock()
         self.subscribers = []
         self.workstate = WorkStatePoller(self.store, self.repo)
+        self.close_watcher = CloseWatcher(self.store, self.repo, lock=self.lock)
         self.httpd = None
         self._lock_fd = None
         self._stop = threading.Event()
@@ -85,6 +87,7 @@ class BoardService:
         self.store.load()
         self.store.write_service_info(self.port, os.getpid())
         self.store.on_append(self.broadcast)
+        self.workstate.on_tickets = self.close_watcher.check
         self.workstate.start()
         self._committer = threading.Thread(target=self._commit_loop, name="git-commit", daemon=True)
         self._committer.start()

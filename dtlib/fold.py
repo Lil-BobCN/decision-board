@@ -15,6 +15,7 @@ def empty_state():
         "comments": {},
         "premises": {},
         "impact_cases": {},
+        "close_records": {},
         # 计数器不进状态哈希，只服务下一次编号
         "counters": {
             "issue": 1,
@@ -22,6 +23,7 @@ def empty_state():
             "decision": 1,
             "premise": 1,
             "impact": 1,
+            "close": 1,
         },
         "seq": 0,
     }
@@ -84,6 +86,14 @@ def apply_event(state, event):
         _fold_impact_act(state, event)
     elif op == "impact.close":
         _fold_impact_close(state, event)
+    elif op == "close.prepare":
+        _fold_close_prepare(state, event)
+    elif op == "close.revoke":
+        _fold_close_revoke(state, event)
+    elif op == "close.mark":
+        _fold_close_mark(state, event)
+    elif op == "issue.close":
+        _fold_issue_close(state, event)
     else:
         raise DtError(f"不认识事件 {op}", detail=event)
 
@@ -314,6 +324,9 @@ def _recount(state):
     for iid in state["impact_cases"]:
         if iid.startswith("IC-") and iid[3:].isdigit():
             counters["impact"] = max(counters["impact"], int(iid[3:]) + 1)
+    for rid in state["close_records"]:
+        if rid.startswith("CL-") and rid[3:].isdigit():
+            counters["close"] = max(counters["close"], int(rid[3:]) + 1)
     state["counters"] = counters
 
 
@@ -442,6 +455,18 @@ def _fold_issue_confirm_derived(state, event):
 def _fold_issue_state(state, event):
     issue = _issue(state, event["target"])
     p = event["payload"]
+    record_id = p.get("close_record")
+    if record_id:
+        record = state["close_records"].get(record_id)
+        if not record:
+            raise DtError(f"找不到待关票记录 {record_id}")
+        if record["ticket"] != issue["id"]:
+            raise DtError(f"待关票记录 {record_id} 不属于票 {issue['id']}")
+        if p["state"] != "closed":
+            raise DtError("只有关票才能带 close_record")
+        record["status"] = "失效"
+        record["revoke_reason"] = event.get("reason") or "强制关票"
+        record["updated_at"] = event["ts"]
     if p["state"] == "closed":
         issue["closed_at"] = event["ts"]
     else:
@@ -887,6 +912,166 @@ def _fold_impact_close(state, event):
     case["close_reason"] = event.get("reason")
 
 
+# ---------- 待关票记录 ----------
+
+def _fold_close_prepare(state, event):
+    p = event["payload"]
+    record_id = p["record"]
+    if record_id in state["close_records"]:
+        raise DtError(f"待关票记录编号重复：{record_id}")
+    ticket = _issue(state, event["target"])
+    _require_ticket(ticket)
+    if ticket["state"] != "open":
+        raise DtError(f"票 {ticket['id']} 已关闭，不能再写待关票记录")
+    for other in state["close_records"].values():
+        if other["ticket"] == ticket["id"] and other["status"] == "等合并":
+            other["status"] = "失效"
+            other["revoke_reason"] = "被新的待关票记录取代"
+            other["updated_at"] = event["ts"]
+    for draft in p["decisions"]:
+        if draft["id"] in state["decisions"]:
+            raise DtError(f"决定编号已被占用：{draft['id']}")
+        if any(draft["id"] == d["id"] for r in state["close_records"].values()
+               for d in r["decisions"]):
+            raise DtError(f"决定编号已被别的待关票记录占用：{draft['id']}")
+        _bump_counter(state, "decision", draft["id"][2:].split("-")[0])
+    state["close_records"][record_id] = {
+        "id": record_id,
+        "ticket": ticket["id"],
+        "pr": p["pr"],
+        "sha": p["sha"],
+        "comments": list(p["comments"]),
+        "decisions": [dict(d) for d in p["decisions"]],
+        "status": "等合并",
+        "verify": None,
+        "last_check": None,
+        "written_by": event["actor"],
+        "written_at": event["ts"],
+        "updated_at": event["ts"],
+        "expanded_at": None,
+        "expanded_event_seq": None,
+        "revoke_reason": None,
+    }
+    _bump_counter(state, "close", record_id[3:])
+
+
+def _fold_close_revoke(state, event):
+    record = _close_record(state, event["payload"]["record"])
+    if record["ticket"] != event["target"]:
+        raise DtError(f"待关票记录 {record['id']} 不属于票 {event['target']}")
+    if record["status"] != "等合并":
+        raise DtError(f"待关票记录 {record['id']} 是{record['status']}，不能撤回")
+    record["status"] = "失效"
+    record["revoke_reason"] = event.get("reason") or "撤回"
+    record["updated_at"] = event["ts"]
+
+
+def _fold_close_mark(state, event):
+    p = event["payload"]
+    record = _close_record(state, p["record"])
+    if record["ticket"] != event["target"]:
+        raise DtError(f"待关票记录 {record['id']} 不属于票 {event['target']}")
+    if record["status"] != "等合并":
+        raise DtError(f"待关票记录 {record['id']} 是{record['status']}，不能再改")
+    if "status" in p:
+        record["status"] = p["status"]
+    if "verify" in p:
+        record["verify"] = p["verify"]
+    if "check" in p:
+        record["last_check"] = {
+            "result": p["check"],
+            "detail": p.get("detail"),
+            "at": event["ts"],
+        }
+    record["updated_at"] = event["ts"]
+
+
+def _fold_issue_close(state, event):
+    p = event["payload"]
+    ticket = _issue(state, event["target"])
+    _require_ticket(ticket)
+    if ticket["state"] == "closed":
+        raise DtError(f"票 {ticket['id']} 已经关闭")
+    record = _close_record(state, p["record"])
+    if record["ticket"] != ticket["id"]:
+        raise DtError(f"待关票记录 {record['id']} 不属于票 {ticket['id']}")
+    if p["pr"] != record["pr"]:
+        raise DtError(f"issue.close 的 PR #{p['pr']} 和记录 {record['id']} 的 PR #{record['pr']} 不一致")
+    if record["status"] != "等合并":
+        raise DtError(f"待关票记录 {record['id']} 是{record['status']}，不能展开")
+    for comment in p["comments"]:
+        if comment["id"] in state["comments"]:
+            raise DtError(f"评论编号重复：{comment['id']}")
+    for draft in p["decisions"]:
+        if draft["id"] in state["decisions"]:
+            raise DtError(f"决定编号重复：{draft['id']}")
+    for comment in p["comments"]:
+        state["comments"][comment["id"]] = {
+            "id": comment["id"],
+            "issue": ticket["id"],
+            "body": comment["body"],
+            "author": event["actor"],
+            "created_at": event["ts"],
+            "edited_at": None,
+            "deleted": False,
+        }
+        _bump_counter(state, "comment", comment["id"][2:])
+    for draft in p["decisions"]:
+        _put_decision(state, {
+            "id": draft["id"],
+            "statement": draft["statement"],
+            "fragments": [],
+            "root_of": None,
+            "source_ticket": ticket["id"],
+            "output_files": list(draft["output_files"]),
+            "rationale": draft.get("rationale", ""),
+            "rationale_source": "",
+            "status": "active",
+            "supersedes": [],
+            "superseded_by": None,
+            "last_still_valid_at": None,
+            "void_reason": None,
+            "voided_at": None,
+            "created_at": event["ts"],
+            "created_by": event["actor"],
+        })
+    ticket["state"] = "closed"
+    ticket["closed_at"] = event["ts"]
+    ticket["updated_at"] = event["ts"]
+    record["status"] = "已展开"
+    record["expanded_at"] = event["ts"]
+    record["expanded_event_seq"] = event["seq"]
+    record["updated_at"] = event["ts"]
+
+
+def _close_record(state, record_id):
+    record = state["close_records"].get(record_id)
+    if not record:
+        raise DtError(f"找不到待关票记录 {record_id}")
+    return record
+
+
+def active_close_record(state, ticket_id):
+    """这张票当前等合并的记录；没有就返回 None。"""
+    found = [
+        r for r in state["close_records"].values()
+        if r["ticket"] == ticket_id and r["status"] == "等合并"
+    ]
+    if not found:
+        return None
+    found.sort(key=lambda r: (r.get("written_at") or "", r["id"]))
+    return found[-1]
+
+
+def latest_close_record(state, ticket_id):
+    """这张票最近写的一条记录，不管状态。"""
+    found = [r for r in state["close_records"].values() if r["ticket"] == ticket_id]
+    if not found:
+        return None
+    found.sort(key=lambda r: (r.get("written_at") or "", r["id"]))
+    return found[-1]
+
+
 # ---------- 视图 ----------
 
 def current_root(state, map_id):
@@ -974,6 +1159,7 @@ def state_hash(state):
         "comments": state["comments"],
         "premises": state["premises"],
         "impact_cases": _impact_for_hash(state["impact_cases"]),
+        "close_records": _close_for_hash(state["close_records"]),
     }
     canonical = _canonical(business)
     text = json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -990,6 +1176,13 @@ def _impact_for_hash(cases):
         ]
         out[cid] = copy_case
     return out
+
+
+def _close_for_hash(records):
+    return {
+        rid: {k: v for k, v in record.items() if k != "expanded_event_seq"}
+        for rid, record in records.items()
+    }
 
 
 def _canonical(value):
