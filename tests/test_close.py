@@ -198,6 +198,22 @@ class TestMergeTrigger(Base):
         self.assertEqual(record["status"], "过期")
         self.assertEqual(record["last_check"]["result"], "closed_without_merge")
 
+    def test_other_linked_pr_does_not_trigger(self):
+        map_id, root = self.make_map()
+        ticket = self.make_ticket(map_id, root)
+        prep = self.prepare(ticket)
+        record_id = prep["payload"]["record"]
+        called = []
+        watcher = self.watcher(lambda pr: called.append(pr) or {"state": "MERGED",
+                                                                "headRefOid": SHA})
+
+        watcher.check({ticket: {"state": "等待人",
+                                "pr": {"number": 188, "state": "closed"}}})
+
+        self.assertEqual(called, [])
+        self.assertEqual(self.store.state["close_records"][record_id]["status"], "等合并")
+        self.assertEqual(self.store.state["issues"][ticket]["state"], "open")
+
     def test_gh_failure_marks_unverified_then_recovers(self):
         map_id, root = self.make_map()
         ticket = self.make_ticket(map_id, root)

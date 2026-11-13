@@ -45,6 +45,8 @@ class CloseWatcher:
             pr = (tickets.get(record["ticket"]) or {}).get("pr")
             if not pr:
                 continue
+            if int(pr.get("number") or 0) != record["pr"]:
+                continue
             pr_state = str(pr.get("state") or "").lower()
             if pr_state == "closed":
                 self._mark(record, status="过期", check="closed_without_merge",
